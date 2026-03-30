@@ -367,5 +367,6 @@ print(f"Usable samples for training: {(~features_df.isna().any(axis=1)).sum()}")
 # MEMORY CHECK
 # ================================
 
+# just a random check, too low memory usge could indicate a bunch of missing data
 mem_usage = result_df.memory_usage(deep=True).sum() / 1024**2
 print(f"Memory usage: {mem_usage:.2f} MB")
