@@ -9,9 +9,9 @@ from tqdm import tqdm
 DATA_PATH = "dataset.csv"
 OUTPUT_PATH = "labeled_data.csv"
 
-TP = 0.015       # +1.5% → strong upward trend (BUY)
-SL = 0.007       # -0.7% → early downside detection (SELL)
-MAX_HORIZON = 30 # minutes
+TP = 0.008       # +0.8% → more achievable upward target (BUY)
+SL = 0.005       # -0.5% → earlier downside detection (SELL)
+MAX_HORIZON = 60 # minutes → doubled window for trend formation
 
 # ================================
 # LOAD DATA

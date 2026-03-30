@@ -88,3 +88,24 @@ With full 7.5M rows: BUY samples would be ~75k (30x more). SELL samples would be
 This might not be a model problem at all. Could just be a data quantity problem. 200k rows is not enough to learn patterns when positive cases are so rare.
 
 Decided to test on full 7.5M rows on friend's gaming laptop. Should give us 30x more training data for both BUY and SELL signals. If ROC-AUC improves significantly (65%+), then we know the issue was data quantity, not the approach. This is worth testing before tweaking parameters or changing the whole labeling strategy.
+
+---
+
+**FULL DATASET RESULTS - PARAMETER TUNING PHASE**
+
+Got the results back from 7.5M full training:
+- BUY ROC-AUC: 0.8480 (was 0.6470 on 200k subset) → +30.9% improvement ✓
+- SELL ROC-AUC: 0.8149 (was 0.5779 on 200k subset) → +40.8% improvement ✓
+
+Data quantity hypothesis confirmed.
+
+Key insight: Even with better ROC-AUC, model is heavily biased toward "no trade". BUY labels only 0.54% of data, SELL only 4.76%. The uncertainty filter (0.7/0.3 thresholds) kills trade signals - zero BUY trades generated because model never reaches 70% confidence on such rare samples.
+
+**PARAMETER TUNING STRATEGY**
+
+Instead of widening TP/SL gap (which creates MORE idk labels), we're going asymmetric and expanding horizon:
+- Increase MAX_HORIZON: 30 → 60 minutes (more time for trends to form)
+- Tighten SL: -0.7% → -0.5% (protective signal triggers earlier)
+- Reduce TP: +1.5% → +0.8% (lower bar for BUY confirmation)
+
+This generates more labels without creating market chop situations. Updated labelling.py with these parameters. Next: Re-run labeling → features → model training.
