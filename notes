@@ -60,3 +60,8 @@ implemented full labelling code. Realized later having a third signal where the 
 Not hittign either stop loss or take profit within max horizon would trigger refusal signal marked as "idk_label" for weak trend and low deviation signal
 
 Ran programme labelling.py and noticed: overalapping between the three signals is 0 so code logic is sound, no trade ratio is 0.9322 or 93.22%. meaning the resultimg machine learning model will play it very cautious, just as we intended.
+
+implemented every single feature I could think of in financial metrics and indicators
+relevence score is quite low for many of he features but for XGBoost those should still help fine tune and improve the accuracy, plus, relavence is a linear thing. we don't know how usefull these features might be wehn used in correlation to the other features. the relevance scores that XGBoost will produce for us might be a much better indicator of which features are actually irrelavent or insignificant.
+For now I don't feel the need to scale back on the features. but if we move to deep learnign in the future then features will be cut back and normalized.
+I will have to be careful while normalizing to avoid data leakage.
