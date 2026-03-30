@@ -96,7 +96,7 @@ print("\n===== TRAINING XGBOOST =====")
 models = {}
 
 for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
-    print(f"\nTraining {label_name.upper()} model...")
+    # print(f"\nTraining {label_name.upper()} model...")
     
     y_train_label = y_train[:, idx]
     
@@ -121,7 +121,7 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     
     models[label_name] = model
     
-    print(f"✓ {label_name.upper()} model trained")
+    # print(f"✓ {label_name.upper()} model trained")
 
 # ================================
 # SAVE MODELS

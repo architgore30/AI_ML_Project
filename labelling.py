@@ -21,7 +21,7 @@ df = pd.read_csv(DATA_PATH)
 df = df.dropna().reset_index(drop=True)
 
 # testing on smaller subset first
-df = df.tail(200000)
+# df = df.tail(200000)
 
 close = df['Close'].values
 n = len(df)
