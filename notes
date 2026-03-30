@@ -1,0 +1,62 @@
+Bitcoin Trend Detection Trading System - Project Notes
+
+Started with a boring school assignment - BYOP. Everyone's doing student performance predictors.
+
+Then realized - I have 7.5M rows of Bitcoin 1-minute OHLC data. That's actually useful.
+
+Initial thought: can I predict next minute direction? Scalp like I do in options.
+Nope. 1-minute crypto data is too noisy. Spreads and fees would kill any micro edge.
+
+ChatGPT was right - scalping won't work here. Switched to trend detection instead.
+
+So instead of "will price go up next minute", the real question is "is a real trend starting right now?"
+
+This led to thinking about labels. Labels are everything. Model only learns what labels teach it.
+
+Started simple: just label if price goes up or down. Too noisy.
+
+Better: define profitability. What if I encoded risk management INTO the labels?
+
+Triple barrier idea came up. TP and SL thresholds. Look 30 minutes ahead.
+
+But wait - I don't want to be symmetric about this. I want the system to be cautious.
+TP = +1.5% (hard to trigger BUY, means strong move)
+SL = -0.7% (easy to trigger SELL, quick to detect danger)
+
+Why? Because avoiding bad trades > chasing every possible trade.
+
+This naturally creates imbalance: more SELL labels than BUY. That's the point. It's intentional bias toward caution.
+
+For the model output - initially thought softmax. But softmax forces a choice even when both signals are weak.
+
+Sigmoid is better. Two independent outputs. Can say "both signals weak, don't trade". That's realistic.
+
+Final label logic is clean:
+- Look ahead 30 minutes
+- Price hits +1.5% first? BUY
+- Price hits -0.7% first? SELL
+- Neither? Do nothing (no trade)
+
+One thing ChatGPT kept hammering: don't expect 90% accuracy. Markets are random. 50-65% is actually good.
+
+Real edge isn't accuracy. It's feature quality + uncertainty filtering. Trade less, trade better.
+
+So the pipeline is:
+1. Get labels (done, or will be this week)
+2. Engineer features (what patterns show a trend is starting?)
+3. Train model with sigmoid outputs
+4. Build decision logic with thresholds
+5. Backtest to see if it actually makes money
+6. Then we know if it's real
+
+Key things to NOT forget:
+- No using future data in features (easy to accidentally leak)
+- Time-based split, never shuffle
+- Class weights during training (because imbalance is intentional)
+- Test on 200k rows first, not all 7.5M (memory)
+- The uncertainty filter matters as much as the predictions
+
+implemented full labelling code. Realized later having a third signal where the model just refuses to trade would also be good.
+Not hittign either stop loss or take profit within max horizon would trigger refusal signal marked as "idk_label" for weak trend and low deviation signal
+
+Ran programme labelling.py and noticed: overalapping between the three signals is 0 so code logic is sound, no trade ratio is 0.9322 or 93.22%. meaning the resultimg machine learning model will play it very cautious, just as we intended.

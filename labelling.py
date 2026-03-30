@@ -11,7 +11,7 @@ OUTPUT_PATH = "labeled_data.csv"
 
 TP = 0.015       # +1.5% → strong upward trend (BUY)
 SL = 0.007       # -0.7% → early downside detection (SELL)
-MAX_HORIZON = 30
+MAX_HORIZON = 30 # minutes
 
 # ================================
 # LOAD DATA
@@ -21,13 +21,14 @@ df = pd.read_csv(DATA_PATH)
 df = df.dropna().reset_index(drop=True)
 
 # testing on smaller subset first
-df = df.tail(200_000)
+df = df.tail(200000)
 
-close = df['close'].values
+close = df['Close'].values
 n = len(df)
 
 buy_labels = np.zeros(n, dtype=np.int8)
 sell_labels = np.zeros(n, dtype=np.int8)
+idk_labels = np.zeros(n, dtype=np.int8)     # A third label for the model to jsut say "I don't know" ("idk") when the market is uncertain
 
 # ================================
 # LABEL GENERATION
@@ -41,14 +42,19 @@ for i in tqdm(range(n - MAX_HORIZON), desc="Generating labels"):
 
     future_prices = close[i+1:i+1+MAX_HORIZON]
 
+    trade_selected = False
     for price in future_prices:
         if price >= upper_threshold:
             buy_labels[i] = 1
+            trade_selected = True
             break
 
         elif price <= lower_threshold:
             sell_labels[i] = 1
+            trade_selected = True
             break
+    if not trade_selected:
+        idk_labels[i] = 1
 
 # ================================
 # ATTACH LABELS
@@ -56,6 +62,7 @@ for i in tqdm(range(n - MAX_HORIZON), desc="Generating labels"):
 
 df['buy_label'] = buy_labels
 df['sell_label'] = sell_labels
+df['idk_label'] = idk_labels
 
 # ================================
 # DIAGNOSTICS
@@ -65,7 +72,7 @@ total = len(df)
 
 buy_ratio = df['buy_label'].sum() / total
 sell_ratio = df['sell_label'].sum() / total
-no_trade_ratio = 1 - (buy_ratio + sell_ratio)
+no_trade_ratio = df['idk_label'].sum() / total
 
 print("\n===== LABEL DISTRIBUTION =====")
 print(f"BUY: {buy_ratio:.4f}")
@@ -73,7 +80,13 @@ print(f"SELL: {sell_ratio:.4f}")
 print(f"NO TRADE: {no_trade_ratio:.4f}")
 
 overlap = ((df['buy_label'] == 1) & (df['sell_label'] == 1)).sum()
-print(f"Overlap (should be 0): {overlap}")
+print(f"Overlap (buy & sell): {overlap}") # should be 0
+
+overlap = ((df['idk_label'] == 1) & (df['buy_label'] == 1)).sum()
+print(f"Overlap (idk & buy): {overlap}") # should be 0
+
+overlap = ((df['idk_label'] == 1) & (df['sell_label'] == 1)).sum()
+print(f"Overlap (idk & sell): {overlap}") # should be 0
 
 # ================================
 # SAVE OUTPUT
