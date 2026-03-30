@@ -49,7 +49,7 @@ print(f"Test: {len(test_df)} samples")
 # ================================
 
 # List all feature columns (exclude OHLCV, volume, and labels)
-exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'timestamp']
+exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'Timestamp']
 feature_cols = [col for col in df_clean.columns if col not in exclude_cols]
 
 print(f"\nUsing {len(feature_cols)} features:")

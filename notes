@@ -9,52 +9,52 @@ Nope. 1-minute crypto data is too noisy. Spreads and fees would kill any micro e
 
 ChatGPT was right - scalping won't work here. Switched to trend detection instead.
 
-So instead of "will price go up next minute", the real question is "is a real trend starting right now?"
+Real question became: "is a real trend starting right now?" Not "will price go up next tick".
 
-This led to thinking about labels. Labels are everything. Model only learns what labels teach it.
+Thought about labels. Labels are everything. Model only learns what labels teach it.
 
-Started simple: just label if price goes up or down. Too noisy.
+Started simple: just label price goes up or down. Too noisy.
 
-Better: define profitability. What if I encoded risk management INTO the labels?
+Better idea: define profitability. Encode risk management INTO the labels themselves.
 
-Triple barrier idea came up. TP and SL thresholds. Look 30 minutes ahead.
+Triple barrier set up. TP and SL thresholds. Look 30 minutes ahead.
 
-But wait - I don't want to be symmetric about this. I want the system to be cautious.
-TP = +1.5% (hard to trigger BUY, means strong move)
-SL = -0.7% (easy to trigger SELL, quick to detect danger)
+But didn't want symmetric thresholds. System needs to be cautious.
+TP = +1.5% (hard to trigger BUY, means strong move exists)
+SL = -0.7% (easy to trigger SELL, detects danger early)
 
-Why? Because avoiding bad trades > chasing every possible trade.
+Why? Avoiding bad trades > chasing every possible trade. Simple as that.
 
-This naturally creates imbalance: more SELL labels than BUY. That's the point. It's intentional bias toward caution.
+Naturally creates imbalance: more SELL than BUY. That's intentional. Bias toward caution.
 
-For the model output - initially thought softmax. But softmax forces a choice even when both signals are weak.
+Model output design: initially thought softmax. But softmax forces a choice even when signals weak.
 
-Sigmoid is better. Two independent outputs. Can say "both signals weak, don't trade". That's realistic.
+Sigmoid is better. Two independent outputs. Can say "both weak, don't trade". That's reality.
 
-Final label logic is clean:
-- Look ahead 30 minutes
-- Price hits +1.5% first? BUY
-- Price hits -0.7% first? SELL
-- Neither? Do nothing (no trade)
+Label logic ended up clean:
+- Look 30 minutes ahead
+- Price hits +1.5% first? = BUY
+- Price hits -0.7% first? = SELL
+- Neither? = do nothing (no trade)
 
-One thing ChatGPT kept hammering: don't expect 90% accuracy. Markets are random. 50-65% is actually good.
+ChatGPT kept saying: don't expect 90% accuracy. Markets random. 50-65% is actually strong.
 
-Real edge isn't accuracy. It's feature quality + uncertainty filtering. Trade less, trade better.
+Real edge isn't from accuracy. Real edge is feature quality + uncertainty filtering. Trade less, trade better.
 
-So the pipeline is:
-1. Get labels (done, or will be this week)
-2. Engineer features (what patterns show a trend is starting?)
-3. Train model with sigmoid outputs
-4. Build decision logic with thresholds
-5. Backtest to see if it actually makes money
+Pipeline became:
+1. Get labels
+2. Engineer features (what patterns show trend starting?)
+3. Train model for probabilities
+4. Apply thresholds for decisions
+5. Backtest for actual profits
 6. Then we know if it's real
 
-Key things to NOT forget:
-- No using future data in features (easy to accidentally leak)
-- Time-based split, never shuffle
-- Class weights during training (because imbalance is intentional)
-- Test on 200k rows first, not all 7.5M (memory)
-- The uncertainty filter matters as much as the predictions
+Must remember:
+- No future data in features (data leakage trap)
+- Time-based splits, never shuffle
+- Class weights for training (imbalance is intentional)
+- Test small before full scale
+- Uncertainty filter matters as much as predictions
 
 implemented full labelling code. Realized later having a third signal where the model just refuses to trade would also be good.
 Not hittign either stop loss or take profit within max horizon would trigger refusal signal marked as "idk_label" for weak trend and low deviation signal
@@ -65,3 +65,26 @@ implemented every single feature I could think of in financial metrics and indic
 relevence score is quite low for many of he features but for XGBoost those should still help fine tune and improve the accuracy, plus, relavence is a linear thing. we don't know how usefull these features might be wehn used in correlation to the other features. the relevance scores that XGBoost will produce for us might be a much better indicator of which features are actually irrelavent or insignificant.
 For now I don't feel the need to scale back on the features. but if we move to deep learnign in the future then features will be cut back and normalized.
 I will have to be careful while normalizing to avoid data leakage.
+
+Implemented XGBoost to predict probability of buy and probability of sell using two seperate models
+we did not train for idk_label becasue it is derived form buy and sell signal so it is redundant
+
+Timestamp had accidentally made its way into the training data becasue of a typo. Fixed it and will train again.
+
+Trained on full 200k row test set. Results came back and initial reaction was concerning.
+
+BUY model: ROC-AUC 0.6470 which is decent but precision is terrible at 0.14. Means 86% false positives. Also recall is 0.10 so only catches 10% of real buys. The uncertainty filter (> 0.7) is so strict that zero buy trades were generated.
+
+SELL model: ROC-AUC 0.5779 which is basically random. Precision 0.29 (71% false positives) and recall 0.87 (catches most real sells but floods with noise). Generated 19026 trades out of 40k samples which is 47%. Way too many.
+
+Feature importance dominated by ATR (0.28-0.45). Everything else is noise. Bollinger bands marginally help but rest of 30+ indicators seem useless.
+
+Initial thought: model is broken, need to tweak. But then realized something important.
+
+In BUY model: only 2461 positive samples out of 40k. That's like training a classifier with almost no examples of the thing we want to predict. And SELL model had even worse class imbalance.
+
+With full 7.5M rows: BUY samples would be ~75k (30x more). SELL samples would be 300k+ (25x more).
+
+This might not be a model problem at all. Could just be a data quantity problem. 200k rows is not enough to learn patterns when positive cases are so rare.
+
+Decided to test on full 7.5M rows on friend's gaming laptop. Should give us 30x more training data for both BUY and SELL signals. If ROC-AUC improves significantly (65%+), then we know the issue was data quantity, not the approach. This is worth testing before tweaking parameters or changing the whole labeling strategy.
