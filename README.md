@@ -1,6 +1,6 @@
 # Bitcoin Trend Detection Trading System
 
-**Status**: Active Development | **Phase**: Model Iteration & Regime Analysis
+**Status**: ❌ PROJECT FAILURE | **Phase**: Concluded - Fundamental Architecture Issues
 
 A production-grade machine learning system for detecting Bitcoin price trends on 1-minute OHLC data. Uses triple-barrier event-based labeling to generate high-quality trading signals, then trains gradient boosting models to predict buy/sell opportunities with risk-managed uncertainty filtering.
 
@@ -29,7 +29,7 @@ python data_visualization.py
 
 ### Multi-Tier Backtesting Workflow
 
-Each model tier (FACTOR=1.0, 2.0, 3.0) contains predictions and backtesting results organized by folder:
+Each model tier (FACTOR=1.0/2.0/3.0 + tuned hyperparameters) contains predictions and backtesting results organized by folder:
 
 ```bash
 # For FACTOR=1.0 tier:
@@ -49,6 +49,12 @@ cp models-3/predictions_test.csv .
 python backtest.py
 mv backtest_results.png models-3/
 mv backtest_trade_log.csv models-3/
+
+# For TUNED HYPERPARAMETERS tier (models-4/):
+cp models-4/predictions_test.csv .
+python backtest.py
+mv backtest_results.png models-4/
+mv backtest_trade_log.csv models-4/
 ```
 
 **Comparison**: Each `models-*/backtest_trade_log.csv` contains detailed results (entry/exit prices, P&L USD, trade duration). Extract metrics from each tier and compare:
@@ -202,7 +208,12 @@ python hyperparameter_tuning.py
 
 ## Current Status
 
-### Latest Results - 3-Tier Model Comparison ✅ ALL TIERS TRAINED & VALIDATED
+### Latest Results - 4-Tier Model Comparison ⚠️ FUNDAMENTAL FAILURE DISCOVERED
+
+**CRITICAL FINDING**: Backtesting revealed entire system non-functional:
+- Tiers 1-3: Severe losses (-50% to -83% final P&L across class-weighted models)
+- Tier 4 (Tuned): **ZERO TRADES** across entire test period (models refuse to signal)
+- **Conclusion**: Triple-barrier labeling + feature set fundamentally incompatible with 1-minute Bitcoin trends
 
 **Test Set (866k samples, post-2018 Bitcoin, 1-minute bars)**
 
@@ -210,9 +221,10 @@ python hyperparameter_tuning.py
 
 | Tier | Factor | Directory | ROC-AUC | Recall | Precision | F1 | BUY Signals | Feature Img |
 |------|--------|-----------|---------|--------|-----------|-----|-----------  |----------  --------|
-| **Baseline** | 1.0 | `models/` | 0.7768 | 47% | 21% | 0.29 | 1,286 | [v4_models](model_version_results/v4_models_importance.png) |
-| **Aggressive** | 2.0 | `models-2/` | 0.7753 | 74% | 15% | 0.21 | 3,095 | [v4_models-2](model_version_results/v4_models-2_importance.png) |
-| **Extreme** | 3.0 | `models-3/` | **0.7782** | **86%** | 12% | 0.21 | **3,571** | [v4_models-3](model_version_results/v4_models-3_importance.png) |
+| **Baseline** | 1.0 | `models/` | 0.7768 | 47% | 21% | 0.29 | 1,286 | [v4_models](model_version_results/v4_models_importance.png) | **LOSS -50%** |
+| **Aggressive** | 2.0 | `models-2/` | 0.7753 | 74% | 15% | 0.21 | 3,095 | [v4_models-2](model_version_results/v4_models-2_importance.png) | **LOSS -82%** |
+| **Extreme** | 3.0 | `models-3/` | **0.7782** | **86%** | 12% | 0.21 | **3,571** | [v4_models-3](model_version_results/v4_models-3_importance.png) | **LOSS -83%** |
+| **🔴 TUNED (models-4)** | Hyperopt | `models-4/` | 0.76 | N/A | N/A | N/A | **ZERO** | [See tuning_results.csv](tuning_results.csv) | **NO TRADES** |
 
 #### SELL Model Performance Across Tiers:
 
@@ -224,11 +236,12 @@ python hyperparameter_tuning.py
 
 #### Trade Generation & Uncertainty Filter:
 
-| Tier | Factor | Total Trades | BUY | SELL | NO_TRADE | Trade Freq | Status |
-|------|--------|--------------|-----|------|----------|------------|--------|
-| **Baseline** | 1.0 | 240,966 | 1,286 | 239,680 | 625,119 | 27.82% | ✓ Live |
-| **Aggressive** | 2.0 | 264,693 | 3,095 | 261,598 | 602,392 | 30.58% | ✓ Ready to backtest |
-| **Extreme** | 3.0 | 241,938 | 3,571 | 238,367 | 624,147 | 27.93% | ✓ Ready to backtest |
+| Tier | Factor | Total Trades | BUY | SELL | NO_TRADE | Trade Freq | P&L Result |
+|------|--------|--------------|-----|------|----------|------------|----------|
+| **Baseline** | 1.0 | 240,966 | 1,286 | 239,680 | 625,119 | 27.82% | ❌ -50% |
+| **Aggressive** | 2.0 | 264,693 | 3,095 | 261,598 | 602,392 | 30.58% | ❌ -82% |
+| **Extreme** | 3.0 | 241,938 | 3,571 | 238,367 | 624,147 | 27.93% | ❌ -83% |
+| **🔴 TUNED** | Tuned | 0 | **0** | **0** | 866,039 | 0% | ❌ PnL=0% (no trades) |
 
 ### Key Analysis - Recall/Precision Tradeoff
 
@@ -264,37 +277,69 @@ Removed pre-2018 data (old regime, 17.5% zero-volume samples) + tuned labeling t
 - Trade frequency: 63% → 28% (sane levels)
 - ROC-AUC: 0.65 → 0.77+ (strong discrimination)
 
-### What's Next
+### FAILURE ANALYSIS: Why The System Broke
 
-**Critical Issue Identified**: Backtesting on 3-tier models (FACTOR=1.0/2.0/3.0) revealed severe losses: -50% to -83% final P&L. Class weighting alone cannot fix poor model discrimination—underlying XGBoost hyperparameters are fundamentally undertested.
+**Problem Progression**:
 
-**Immediate Priorities**:
+1. **Phase 1 - Class Weighting Hypothesis**: "Adjust class weights to prevent majority-class bias"
+   - Models 1-3 (FACTOR=1.0/2.0/3.0) generated signals ✓
+   - BUT: Backtesting revealed -50% to -83% losses ✗
+   - Lesson: Class weighting affects *which examples* to learn, not *model capacity*
 
-1. **Run Hyperparameter Tuning** (2-3 hours):
-   ```bash
-   python hyperparameter_tuning.py
-   ```
-   Tests 54 parameter combinations across n_estimators, max_depth, learning_rate, subsample. Outputs recommended parameters ranked by signal confidence.
+2. **Phase 2 - Hyperparameter Tuning Hypothesis**: "Optimize network depth and learning dynamics"
+   - Grid search tested 54 combinations ✓
+   - Identified "optimal" params: n_estimators=50, max_depth=2, lr=0.01, subsample=0.8 ✓
+   - BUT: models-4/ generated **ZERO TRADES** in entire backtest ✗
+   - Lesson: Extreme regularization (shallow=max_depth:2, slow=lr:0.01) made model refuse to trade
 
-2. **Retrain with Optimal Parameters**:
-   - Update `model.py` with best-found hyperparameters
-   - Train final BUY/SELL models
-   - Run `predictions.py` → `backtest.py` to validate P&L recovery
+3. **Root Cause**: 
+   - Shallow trees (depth=2) cannot capture minute-scale Bitcoin price dynamics
+   - Slow learning (lr=0.01) with few estimators (50) underfit the data
+   - Result: Model collapsed to ~50/50 confidence on all samples
+   - Decision logic requires buy_prob > 0.5 AND sell_prob < 0.5 → never both true
 
-3. **Validate & Compare**:
-   - Before: -50% to -83% P&L (baseline)
-   - After: Should show significant P&L improvement or identify deeper structural issues
+**Why This Indicates Fundamental Failure** (not just tuning failure):
+- Hyperparameter sweep should have found *some* window of profitability (or at least some trades)
+- Instead: Tuning moved us from "losing money while trading" to "not trading at all"
+- Bi-directional failure suggests: Either labels are noise OR features are predictively futile
+- Normal ML projects would find a sweet spot; this one only found extremes (trade-everything/trade-nothing)
 
-4. **If Still Unprofitable**: Consider alternative approaches:
-   - Review labeling thresholds (TP=0.8%, SL=0.5% may be suboptimal)
-   - Feature engineering iteration (current 35 features may lack predictive power)
-   - Market regime detection (distinct trading rules for bull/bear?)
+### Known Issues & Limitations
 
-**Success Criteria** (revised):
-- Backtest P&L > 0% (break-even minimum)
-- Win rate > 40%
-- Profit factor > 1.0
-- Sharpe ratio > 0.3 (relaxed from 0.5 due to market noise)
+| Issue | Impact | Evidence | Likely Cause |
+|-------|--------|----------|--------------|
+| **Unprofitable signals** | -50% to -83% loss across all FACTOR tiers | Trade logs show more losing trades than winning | Labels may be noisy; features may not predict trend onset |
+| **Zero-trade models** | No edge when regularized | models-4/ tuned params generated 0 BUY/SELL signals | Model confidence collapsed due to tight regularization |
+| **Class imbalance persistence** | 20% SELL vs 8% BUY skew not fixed by weighting | Models still overpredict SELL relative to BUY | Labeling asymmetry (TP=0.8% vs SL=-0.5%) baked into ground truth |
+| **1-minute trend detection validity** | Questionable if trends exist at 1-min scale | ROC-AUC ~0.77 but P&L negative suggests patterns don't persist | Market structure: high noise-to-signal ratio at minute resolution |
+| **Feature predictiveness** | Lagging indicators may not capture lead signals | ATR, Bollinger Bands dominate but don't prevent losses | Technical indicators work better for confirmation than prediction |
+
+### Conclusion: PROJECT IS NON-VIABLE
+
+**What Succeeded** (infrastructure):
+- ✅ Data pipeline (7.5M rows cleanly processed, regime filtering)
+- ✅ Labeling system (triple-barrier logic correctly implemented)
+- ✅ Feature engineering (35 features generated, importance ranked)
+- ✅ Training framework (XGBoost CPU + GPU, hyperparameter tuning)
+- ✅ Backtesting engine (realistic P&L with commission/slippage/position sizing)
+- ✅ Signal generation (threshold logic operational)
+
+**What Failed** (core hypothesis):
+- ❌ **Bitcoin 1-minute trends are not predictable with current approach**
+- ❌ Class weighting + hyperparameter tuning cannot salvage inherently weak signal
+- ❌ Triple-barrier labeling on minute-scale data produces non-actionable labels
+- ❌ 35 technical indicators insufficient to outperform random guess baseline
+
+**Recommended Next Steps IF RESTARTING**:
+1. **Increase timeframe**: Test 5-min, 15-min, 1-hour bars (less noise, clearer trends)
+2. **Rethink labeling**: Consider mean-reversion instead of trend-following for short timeframes
+3. **Regime-aware signals**: Train separate models for bull/bear/ranging conditions
+4. **Feature validation**: Verify each feature has positive correlation with future returns before training
+5. **Ensemble approach**: Combine with other strategies (e.g., volatility arbitrage, order flow)
+
+**For Now**: This architecture does not produce positive expected value.
+
+---
 
 ### Backtesting Infrastructure ✅ PRODUCTION READY
 
@@ -329,7 +374,8 @@ Removed pre-2018 data (old regime, 17.5% zero-volume samples) + tuned labeling t
 ├── dataset.csv                      # Raw Bitcoin OHLCV data (7.5M rows, 2012-2027)
 ├── labelling.py                     # Triple-barrier label generation
 ├── features.py                      # 35+ feature engineering
-├── model.py                         # XGBoost training (tunable WEIGHT_FACTOR)
+├── model.py                         # XGBoost training (tunable WEIGHT_FACTOR, CPU)
+├── model-gpu.py                     # XGBoost training (GPU-accelerated variant)
 ├── data_visualization.py            # Dataset analysis (volume patterns, regimes)
 ├── backtest.py                      # Trading simulation & P&L calculator
 ├── predictions.py                   # Generate predictions_test.csv for model tier
@@ -356,6 +402,13 @@ Removed pre-2018 data (old regime, 17.5% zero-volume samples) + tuned labeling t
 │   ├── predictions_test.csv         # Test set predictions (FACTOR=3.0)
 │   ├── backtest_results.png         # 4-panel P&L visualization
 │   └── backtest_trade_log.csv       # Detailed trade log
+├── models-4/                        # TUNED HYPERPARAMETERS (optimal grid search result)
+│   ├── xgboost_buy_model.joblib     # n_estimators=50, max_depth=2, lr=0.01, subsample=0.8
+│   ├── xgboost_sell_model.joblib
+│   ├── feature_names.joblib
+│   ├── predictions_test.csv         # Test set predictions (tuned params)
+│   ├── backtest_results.png         # 4-panel P&L visualization (validation)
+│   └── backtest_trade_log.csv       # Detailed trade log (empirical validation)
 │
 ├── model_version_results/           # Version comparison & analysis images
 │   ├── v1_initial_test.png          # First 200k subset run (poor: ROC-AUC 0.56-0.65)
@@ -440,9 +493,10 @@ WEIGHT_FACTOR = 1.0  # Can tune: 1.0 (baseline), 2.0 (aggressive), 3.0 (extreme)
 | **Extreme** | 3.0 | `models-3/` | 86% | 12% | 0.7782 | 95% | ✓ Validated |
 
 **Model Directories**:
-- `models/` → FACTOR=1.0 (baseline, proven)
-- `models-2/` → FACTOR=2.0 (aggressive, aggressive signal generation)
-- `models-3/` → FACTOR=3.0 (extreme, maximum coverage)
+- `models/` → FACTOR=1.0 (class weight baseline, proven)
+- `models-2/` → FACTOR=2.0 (aggressive class weight, aggressive signal generation)
+- `models-3/` → FACTOR=3.0 (extreme class weight, maximum coverage)
+- `models-4/` → **TUNED HYPERPARAMETERS** (n_est=50, depth=2, lr=0.01, empirical validation pending)
 
 **Aggressiveness Scale**:
 - Lower precision → catches more opportunities

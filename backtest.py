@@ -18,7 +18,7 @@ from matplotlib.ticker import FuncFormatter
 # ================================
 # CONFIGURATION
 # ================================
-MODEL_PATH = "models-3"
+MODEL_PATH = "models-4"
 PREDICTIONS_PATH = MODEL_PATH + "/predictions_test.csv"
 FEATURES_PATH = "features.csv"
 

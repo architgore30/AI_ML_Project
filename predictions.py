@@ -14,8 +14,8 @@ import sys
 # CONFIGURATION
 # ================================
 
-# Specify which model folder to use (models/, models-2/, or models-3/)
-MODELS_PATH = "models-3"  # Change this to models-2/ or models-3/ for other tiers
+# Specify which model folder to use (models, models-2, models-3, or models-4)
+MODELS_PATH = "models-4"  # Change this to models-2 or models-3 for other tiers
 
 DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
