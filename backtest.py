@@ -18,8 +18,8 @@ from matplotlib.ticker import FuncFormatter
 # ================================
 # CONFIGURATION
 # ================================
-
-PREDICTIONS_PATH = "predictions_test.csv"
+MODEL_PATH = "models-3"
+PREDICTIONS_PATH = MODEL_PATH + "/predictions_test.csv"
 FEATURES_PATH = "features.csv"
 
 # Trading parameters
@@ -265,8 +265,8 @@ if len(trades) > 0:
     ax4.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('backtest_results.png', dpi=150, bbox_inches='tight')
-    print("✓ Saved: backtest_results.png")
+    plt.savefig(f'{MODEL_PATH}/backtest_results.png', dpi=150, bbox_inches='tight')
+    print(f"✓ Saved: {MODEL_PATH}/backtest_results.png")
     plt.close()
 
 # ================================
@@ -274,7 +274,7 @@ if len(trades) > 0:
 # ================================
 
 if len(trades) > 0:
-    trades_df.to_csv('backtest_trade_log.csv', index=False)
-    print("✓ Saved: backtest_trade_log.csv")
+    trades_df.to_csv(MODEL_PATH + '/backtest_trade_log.csv', index=False)
+    print(f"✓ Saved: {MODEL_PATH}backtest_trade_log.csv")
 
 print("\n✓ Backtesting complete!")
