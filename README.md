@@ -27,6 +27,40 @@ python backtest.py
 python data_visualization.py
 ```
 
+### Multi-Tier Backtesting Workflow
+
+Each model tier (FACTOR=1.0, 2.0, 3.0) contains predictions and backtesting results organized by folder:
+
+```bash
+# For FACTOR=1.0 tier:
+cp models/predictions_test.csv .          # Copy predictions to root
+python backtest.py                        # Generate backtest_results.png & backtest_trade_log.csv
+mv backtest_results.png models/
+mv backtest_trade_log.csv models/
+
+# For FACTOR=2.0 tier:
+cp models-2/predictions_test.csv .
+python backtest.py
+mv backtest_results.png models-2/
+mv backtest_trade_log.csv models-2/
+
+# For FACTOR=3.0 tier:
+cp models-3/predictions_test.csv .
+python backtest.py
+mv backtest_results.png models-3/
+mv backtest_trade_log.csv models-3/
+```
+
+**Comparison**: Each `models-*/backtest_trade_log.csv` contains detailed results (entry/exit prices, P&L USD, trade duration). Extract metrics from each tier and compare:
+- Final Portfolio Value (USD)
+- Total Return (%)
+- Win Rate
+- Sharpe Ratio
+- Max Drawdown
+- Profit Factor
+
+Identify empirical winner and document in notes.
+
 ---
 
 ## Architecture
@@ -254,26 +288,27 @@ Removed pre-2018 data (old regime, 17.5% zero-volume samples) + tuned labeling t
 ├── models/                          # WEIGHT_FACTOR=1.0 (baseline tier)
 │   ├── xgboost_buy_model.joblib
 │   ├── xgboost_sell_model.joblib
-│   └── feature_names.joblib
+│   ├── feature_names.joblib
+│   ├── predictions_test.csv         # Test set predictions (FACTOR=1.0)
+│   ├── backtest_results.png         # 4-panel P&L visualization
+│   └── backtest_trade_log.csv       # Detailed trade log
 ├── models-2/                        # WEIGHT_FACTOR=2.0 (aggressive tier)
 │   ├── xgboost_buy_model.joblib    # ⚠️ Retrain locally (WhatsApp corrupted)
 │   ├── xgboost_sell_model.joblib   # ⚠️ Retrain locally (WhatsApp corrupted)
-│   └── feature_names.joblib
-├── models-3/                        # WEIGHT_FACTOR=3.0 (extreme tier, planned)
-│   ├── xgboost_buy_model.joblib    # 📋 Train locally
-│   ├── xgboost_sell_model.joblib   # 📋 Train locally
-│   └── feature_names.joblib
-│
-├── visualizations/                  # Analysis plots
-│   ├── volume_analysis.png
-│   ├── volume_by_period.png
-│   ├── xgboost_results.png          # Feature importance for FACTOR=1.0
-│   └── backtest_results.png         # P&L charts after backtesting
+│   ├── feature_names.joblib
+│   ├── predictions_test.csv         # Test set predictions (FACTOR=2.0)
+│   ├── backtest_results.png         # 4-panel P&L visualization
+│   └── backtest_trade_log.csv       # Detailed trade log
+├── models-3/                        # WEIGHT_FACTOR=3.0 (extreme tier)
+│   ├── xgboost_buy_model.joblib
+│   ├── xgboost_sell_model.joblib
+│   ├── feature_names.joblib
+│   ├── predictions_test.csv         # Test set predictions (FACTOR=3.0)
+│   ├── backtest_results.png         # 4-panel P&L visualization
+│   └── backtest_trade_log.csv       # Detailed trade log
 │
 ├── labeled_data.csv                 # Output from labelling.py
 ├── features.csv                     # Output from features.py
-├── predictions_test.csv             # Model predictions on test set (FACTOR=1.0)
-├── backtest_trade_log.csv           # Detailed trade log from backtesting
 ├── notes                            # Development diary & decisions
 ├── .github/copilot-instructions.md  # Workspace AI context
 └── README.md                        # This file

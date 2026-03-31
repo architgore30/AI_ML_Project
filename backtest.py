@@ -179,12 +179,8 @@ else:
     
     total_pnl_usd = trades_df['pnl_usd'].sum()
     
-    buy_trades = trades_df[trades_df['type'] == 'BUY']
-    sell_trades = trades_df[trades_df['type'] == 'SELL']
-    
     print(f"\nTotal trades executed: {total_trades}")
-    print(f"  BUY trades: {len(buy_trades)}")
-    print(f"  SELL trades: {len(sell_trades)}")
+    print(f"  All trades are LONG (buy and hold until SELL signal or timeout)")
     print(f"\nWinning trades: {winning_trades} ({win_rate*100:.2f}%)")
     print(f"Losing trades: {losing_trades}")
     print(f"\nAverage win: ${avg_win_usd:,.2f} ({trades_df[trades_df['pnl_usd'] > 0]['pnl_pct'].mean()*100:.4f}%)")
@@ -194,9 +190,6 @@ else:
     if winning_trades > 0:
         profit_factor = -total_pnl_usd if losing_trades == 0 else abs(trades_df[trades_df['pnl_usd'] > 0]['pnl_usd'].sum() / trades_df[trades_df['pnl_usd'] <= 0]['pnl_usd'].sum())
         print(f"Profit factor: {profit_factor:.2f}")
-    
-    # Strategy comparison (all trades are long positions)
-    print(f"\nAll trades are long (buy and hold until signal or timeout)")
     
     # Drawdown analysis
     cumulative_usd = trades_df['pnl_usd'].cumsum()
