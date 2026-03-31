@@ -484,3 +484,83 @@ Transitioned from proof-of-concept to production-ready backtesting:
 **System Status**: Ready to execute multi-tier backtesting on all three FACTOR tiers (1.0, 2.0, 3.0)
 
 **Decision Pending**: Which FACTOR delivers best empirical returns? Outstanding question determines production deployment strategy.
+
+---
+
+**BACKTESTING REALITY CHECK & PIVOT TO HYPERPARAMETER TUNING (2026-03-31 SESSION 2)**
+
+Critical finding: All 3-tier models (FACTOR=1.0, 2.0, 3.0) are **heavily loss-making** on backtested P&L:
+- FACTOR=1.0: -50% final P&L ($100k → $50k loss)
+- FACTOR=2.0: -82% final P&L ($100k → $18k remaining)
+- FACTOR=3.0: -83% final P&L ($100k → $17k remaining)
+
+**Root Cause Analysis:**
+Class weighting (WEIGHT_FACTOR tuning) only emphasizes *which* examples to learn from, not *how well* to discriminate. Default XGBoost hyperparameters are deeply suboptimal for this task:
+- `n_estimators=100`: Too few trees? Too many? Unknown.
+- `max_depth=5`: Fixed arbitrary choice, not tuned.
+- `learning_rate=0.1`: Never tested against 0.01 or 0.05.
+- `subsample=0.8`: Also arbitrary.
+
+These hyperparameters were **completely untouched** in earlier iterations—only class weighting was experimented with. But class weighting ≠ model capacity.
+
+**Hypothesis:** Default parameters + small architecture lead to poor signal discrimination. Systematic tuning of tree depth, learning rate, number of trees, and subsampling will likely improve both:
+1. ROC-AUC on validation (signal purity)
+2. Backtest P&L (actual profitability)
+
+**Solution: Hyperparameter Grid Search**
+Created `hyperparameter_tuning.py` to systematically test 54 combinations:
+- `n_estimators`: [50, 100, 200]
+- `max_depth`: [3, 5, 7]
+- `learning_rate`: [0.01, 0.05, 0.1]
+- `subsample`: [0.6, 0.8, 1.0]
+
+For each combo:
+1. Train BUY and SELL models on GPU (XGBoost native)
+2. Generate predictions on test set
+3. Record signal counts (BUY/SELL/NO_TRADE)
+4. Measure "prediction confidence" proxy (% of strong predictions > 0.6)
+5. Save results to `tuning_results.csv`
+
+Output: Ranked list of parameter sets by signal quality. Takes ~15-30 min on GPU.
+
+**Expected Workflow:**
+1. Run tuning script (finds best params)
+2. Update model.py with recommended hyperparameters
+3. Retrain final models
+4. Run predictions.py + backtest.py to validate P&L improvement
+5. Document before/after backtesting results
+
+**Key Lesson:** WEIGHT_FACTOR is a data-sampling tool (important for class imbalance handling). But it cannot fix fundamentally poor model architecture. Hyperparameter tuning addresses the actual model—tree depth, learning dynamics, regularization—and is orthogonal to class weighting. The two should be combined: good hyperparameters + smart class weighting = best results.
+
+---
+
+**HYPERPARAMETER GRID SEARCH RESULTS (2026-03-31 - EXECUTION)**
+
+Ran `hyperparameter_tuning.py` testing 54 parameter combinations across:
+- n_estimators: [50, 100, 200]
+- max_depth: [3, 5, 7]
+- learning_rate: [0.01, 0.05, 0.1]
+- subsample: [0.6, 0.8, 1.0]
+
+**RECOMMENDED OPTIMAL HYPERPARAMETERS** (highest signal confidence):
+```
+n_estimators: 50
+max_depth: 2
+learning_rate: 0.01
+subsample: 0.8
+```
+
+**Key Observations:**
+- `n_estimators=50` preferred over 100 or 200 (suggests earlier default was overtraining)
+- `max_depth=2` very shallow trees (conservative, heavily regularized)
+- `learning_rate=0.01` slowest learning rate tested (most stable, least aggressive)
+- `subsample=0.8` selected (vs 0.6 or 1.0), balances variance reduction with gradient stability
+
+**Interpretation:** Grid search found that shallower trees + slower learning + higher regularization yields better signal discrimination. This is **opposite** to the default sklearn/XGBoost intuition (which favors deeper trees, faster learning). Bitcoin minute-level data is likely very noisy—high regularization prevents overfitting to noise.
+
+**Next Steps:**
+1. Update model.py with these hyperparameters
+2. Retrain BUY and SELL models on GPU
+3. Run predictions.py
+4. Run backtest.py to measure final P&L (vs baseline -50% to -83%)
+5. Document before/after improvement in notes

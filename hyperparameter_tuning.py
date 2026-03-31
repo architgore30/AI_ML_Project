@@ -15,6 +15,25 @@ from itertools import product
 from tqdm import tqdm
 
 # ================================
+# GPU DETECTION
+# ================================
+
+try:
+    # Test GPU availability
+    test_matrix = xgb.DMatrix(np.random.rand(10, 5), label=np.random.rand(10))
+    test_model = xgb.train(
+        {'tree_method': 'auto', 'device': 'cuda', 'objective': 'reg:squarederror'},
+        test_matrix,
+        num_boost_round=1,
+        verbose_eval=False
+    )
+    GPU_AVAILABLE = True
+    print("GPU detected and available for XGBoost")
+except Exception as e:
+    GPU_AVAILABLE = False
+    print(f"GPU not available, falling back to CPU")
+
+# ================================
 # CONFIGURATION
 # ================================
 
@@ -24,10 +43,10 @@ WEIGHT_FACTOR = 1.0  # Start with base weighting
 
 # Hyperparameter grid to search
 PARAM_GRID = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [3, 5, 7],
+    'n_estimators': [50, 100, 200, 300, 350, 400],
+    'max_depth': [1, 2, 3, 5, 7],
     'learning_rate': [0.01, 0.05, 0.1],
-    'subsample': [0.6, 0.8, 1.0]
+    'subsample': [0.2, 0.4, 0.6, 0.8, 1.0]
 }
 
 # ================================
@@ -35,7 +54,7 @@ PARAM_GRID = {
 # ================================
 
 print("Loading data...")
-df = pd.read_csv(DATA_PATH)
+df = pd.read_csv(DATA_PATH).iloc[:50_000] # training on smaller dataset to reduce total training time
 df_clean = df.dropna()
 
 split_idx = int(len(df_clean) * TRAIN_RATIO)
@@ -44,6 +63,7 @@ test_df = df_clean.iloc[split_idx:]
 
 exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'Timestamp', 'DateTime']
 feature_cols = [col for col in df_clean.columns if col not in exclude_cols]
+feature_cols = list(feature_cols)  # Ensure it's a list of strings
 
 X_train = train_df[feature_cols].values
 X_test = test_df[feature_cols].values
@@ -88,24 +108,29 @@ for combo_idx, param_combo in enumerate(tqdm(all_combinations, desc="Testing hyp
     try:
         # Train BUY and SELL models with these parameters
         models = {}
+        dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
         
         for label_idx, label_name in enumerate(['buy', 'sell']):
             y_train_label = y_train[:, label_idx]
             class_weight = buy_weight if label_name == 'buy' else sell_weight
             sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
             
-            # XGBoost training (GPU if available)
-            dtrain = xgb.DMatrix(X_train, label=y_train_label, feature_names=feature_cols)
-            dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
+            # XGBoost training
+            dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
+            
+            tree_method = 'auto'
             
             xgb_params = {
                 'max_depth': params['max_depth'],
                 'learning_rate': params['learning_rate'],
                 'subsample': params['subsample'],
                 'objective': 'binary:logistic',
-                'tree_method': 'gpu_hist',  # GPU acceleration
-                'gpu_id': 0
+                'tree_method': tree_method
+                # 'verbose_eval': False
             }
+            
+            # Add device parameter (auto will use GPU if available)
+            xgb_params['device'] = 'cuda'
             
             model = xgb.train(
                 xgb_params,
@@ -117,7 +142,6 @@ for combo_idx, param_combo in enumerate(tqdm(all_combinations, desc="Testing hyp
             models[label_name] = model
         
         # Generate predictions on test set
-        dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
         buy_proba = models['buy'].predict(dtest)
         sell_proba = models['sell'].predict(dtest)
         
