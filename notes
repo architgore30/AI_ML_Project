@@ -240,3 +240,55 @@ Pre-2018 data was teaching model "default = no trade". Removing it + aggressive 
 - Volume + MACD + MAs meaningful (5-10% each)
 
 **Next:** Backtest to validate if 21% BUY precision and 30% SELL precision are profitable despite traditional metric limitations.
+
+---
+
+**CLASS WEIGHT AMPLIFICATION: WEIGHT_FACTOR=2.0 (Doubled)**
+
+Tested aggressive class weighting by doubling the weight factor. This pushes model harder on rare BUY signals.
+
+**Comparison vs WEIGHT_FACTOR=1.0:**
+
+BUY Model:
+- ROC-AUC: 0.7753 (was 0.7768, -0.15% = stable) ✓
+- Recall: 74% (was 47%, +57% improvement!) ✓
+- Precision: 15% (was 21%, -29% decline) ⚠️
+- Signals: 3,095 (was 1,286, +141% = 2.4x more coverage!) ✓
+
+SELL Model:
+- ROC-AUC: 0.7466 (was 0.7463, +0.03% = stable) ✓
+- Recall: 90% (was 73%, +23% improvement) ✓
+- Precision: 24% (was 30%, -20% decline) ⚠️
+- Signals: 261,598 (was 239,680, +9%)
+
+Total Trades: 264,693 (was 240,966)
+
+**Assessment:**
+WEIGHT_FACTOR=2.0 is BETTER for signal *coverage*: catching 2.4x more BUY opportunities (74% vs 47% recall) and 90% of SELL signals. But precision drops (15% vs 21% on BUY, 24% vs 30% on SELL). Classic recall/precision tradeoff.
+
+**Decision:** Backtest both to find empirical winner. For trading, catching opportunities (high recall) + protection (SELL at 90%) can outweigh precision loss if wins are larger than losses.
+
+---
+
+**CRITICAL DISCOVERY: WhatsApp Model Deduplication Issue**
+
+Friend sent models trained with WEIGHT_FACTOR=1.0 and WEIGHT_FACTOR=2.0 via WhatsApp. But WhatsApp's duplicate detection caused a problem:
+
+**Hash Analysis Results:**
+- xgboost_buy_model.joblib (models/ vs models-2/): IDENTICAL hash (4D2222B00...- xgboost_sell_model.joblib (models/ vs models-2/): IDENTICAL hash (FFFA2333...)
+- xgboost_buy_model.json (models/ vs models-2/): DIFFERENT hashes
+- xgboost_sell_model.json (models/ vs models-2/): DIFFERENT hashes
+
+**Root Cause:**
+WhatsApp deduped the .joblib files (probably filename + timestamp matching), so both folders contain the SAME joblib models (from WEIGHT_FACTOR=1.0 training only). But the .json files (XGBoost native format) represent the genuinely different trained models.
+
+**Impact:**
+- Do NOT use joblib files for comparison - they're duplicates
+- USE JSON files for backtesting - they're the real, unique models
+- models-2/ actually contains WEIGHT_FACTOR=2.0 model, but serialized as .json only
+
+**For Backtesting:**
+Load `models-2/xgboost_buy_model.json` and `models-2/xgboost_sell_model.json` to evaluate WEIGHT_FACTOR=2.0 predictions. The .joblib files are contaminated by WhatsApp dedup and should be regenerated locally or avoided.
+
+**Resolution:**
+Retrain models locally with reliable file transfer (Google Drive, GitHub, AWS S3, or email with checksums). WhatsApp's duplicate detection is not suitable for ML model files - use services with file integrity verification.
