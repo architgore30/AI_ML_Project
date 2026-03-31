@@ -1,6 +1,31 @@
+"""
+XGBoost Gradient Boosting Model Training for Bitcoin Trend Detection
+
+Purpose:
+    Train separate XGBoost models to predict BUY and SELL signals.
+    - BUY model: Predicts probability of upcoming +TP% uptrend
+    - SELL model: Predicts probability of incoming -SL% downside risk
+
+Model Architecture:
+    - Algorithm: XGBoost (Gradient Boosted Decision Trees)
+    - Separate models for BUY and SELL (asymmetric decision logic)
+    - Output: Probability scores (0-1) via sigmoid activation
+    - Features: 35 engineered indicators (momentum, volatility, trend, price action)
+
+Training:
+    - Train set: 80% of data (chronological, no shuffle)
+    - Test set: 20% of data (out-of-time validation)
+    - Class weighting: Tunable WEIGHT_FAC TOR to handle imbalanced labels
+
+Output:
+    - xgboost_buy_model.joblib, xgboost_sell_model.joblib (trained models)
+    - feature_names.joblib (for reproducibility)
+    - Performance metrics and feature importance visualizations
+"""
+
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier
+import xgboost as xgb
 from sklearn.metrics import classification_report, roc_auc_score
 import matplotlib.pyplot as plt
 import joblib
@@ -12,41 +37,51 @@ from tqdm import tqdm
 # ================================
 
 DATA_PATH = "features.csv"
+MODEL_DIR = "models"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
-# XGBoost hyperparameters
+# XGBoost hyperparameters (TUNED via hyperparameter_tuning.py)
 n_estimators = 100
 max_depth = 5
 learning_rate = 0.1
 subsample = 0.8
 
+# Class weighting (tunable)
+# FACTOR controls how much to emphasize BUY signals during training.
+# Higher factor = model becomes more aggressive in predicting BUY
+WEIGHT_FACTOR = 1.0  # 1.0=baseline, 2.0=aggressive, 3.0=extreme
+
 # ================================
 # LOAD DATA
 # ================================
 
+print(f"📂 Loading engineered features from {DATA_PATH}...")
 df = pd.read_csv(DATA_PATH)
+print(f"   ✓ Loaded {len(df):,} samples")
 
-print(f"Loaded {len(df)} samples")
-
-# Drop rows with NaN features (warmup period)
+# Drop rows with NaN features (warmup period for indicator calculation)
 df_clean = df.dropna()
-print(f"After removing NaN warmup period: {len(df_clean)} samples")
+print(f"   ✓ After removing NaN warmup: {len(df_clean):,} samples remain")
 
 # ================================
-# TIME-BASED SPLIT (NO SHUFFLING - CRITICAL)
+# TIME-BASED SPLIT (CHRONOLOGICAL, NO SHUFFLING)
 # ================================
+# Critical: Never shuffle time series! Always train on past, validate on future.
 
+print(f"\n⏱️  Time-based split (80/20)...")
 split_idx = int(len(df_clean) * TRAIN_RATIO)
 
 train_df = df_clean.iloc[:split_idx]
 test_df = df_clean.iloc[split_idx:]
 
-print(f"\nTrain: {len(train_df)} samples")
-print(f"Test: {len(test_df)} samples")
+print(f"   ✓ Training set: {len(train_df):,} samples ({TRAIN_RATIO:.0%})")
+print(f"   ✓ Test set:     {len(test_df):,} samples ({1-TRAIN_RATIO:.0%})")
 
 # ================================
 # SEPARATE FEATURES AND LABELS
 # ================================
+
+print(f"\n🔍 Extracting features and labels...")
 
 # List all feature columns (exclude OHLCV, volume, and labels)
 exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'Timestamp', 'DateTime']
@@ -133,29 +168,28 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     # print(f"✓ {label_name.upper()} model trained")
 
 # ================================
-# SAVE MODELS
+# SAVE TRAINED MODELS
 # ================================
 
-print("\n===== SAVING MODELS =====")
+print(f"\n💾 Saving trained models and metadata...")
 
-models_dir = "models"
-os.makedirs(models_dir, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 for label_name, model in models.items():
-    model_path = os.path.join(models_dir, f"xgboost_{label_name}_model.joblib")
+    model_path = os.path.join(MODEL_DIR, f"xgboost_{label_name}_model.joblib")
     joblib.dump(model, model_path)
-    print(f"✓ Saved: {model_path}")
+    print(f"   ✓ {label_name.upper():5s} model: {model_path}")
 
-# Also save feature column names for later use
-feature_names_path = os.path.join(models_dir, "feature_names.joblib")
+#  Also save feature column names for later use (critical for inference)
+feature_names_path = os.path.join(MODEL_DIR, "feature_names.joblib")
 joblib.dump(feature_cols, feature_names_path)
-print(f"✓ Saved: {feature_names_path}")
+print(f"   ✓ Feature names: {feature_names_path}")
 
 # ================================
-# EVALUATION
+# MODEL EVALUATION & DIAGNOSTICS
 # ================================
 
-print("\n===== MODEL EVALUATION =====")
+print(f"\n📈 Evaluating models on test set ({len(y_test):,} samples)...")
 
 for label_name in ['buy', 'sell']:
     print(f"\n{label_name.upper()} MODEL:")

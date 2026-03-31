@@ -1,3 +1,23 @@
+"""
+Feature Engineering for Bitcoin Trend Detection
+
+Purpose:
+    Engineer 35+ technical indicators and price action features from raw OHLCV data.
+    Features are designed to capture momentum, volatility, and trend dynamics at
+    the 1-minute timeframe.
+
+Feature Categories (35 total):
+    1. Momentum Features (returns, ROC): Capture price acceleration
+    2. Volatility Features (ATR, Bollinger Bands): Measure price dispersion
+    3. Trend Features (moving averages, directional): Identify sustained moves
+    4. Price Action (close position, ranges): Measure bar structure
+    5. Volume Metrics: Track participation/confirmation
+
+Output:
+    features.csv with all 35 features + original OHLCV + labels
+    Ready for model training and backtesting
+"""
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -20,10 +40,15 @@ VOLUME_WINDOW = 20
 # LOAD DATA
 # ================================
 
+print(f"📂 Loading labeled data from {INPUT_PATH}...")
 df = pd.read_csv(INPUT_PATH)
-df = df.dropna().reset_index(drop=True)
+print(f"   ✓ Loaded {len(df)} samples")
 
-print(f"Loaded {len(df)} samples")
+df = df.dropna().reset_index(drop=True)
+print(f"   ✓ Cleaned NaN values: {len(df)} samples remain")
+
+# Extract OHLCV into numpy arrays for performance
+print(f"\n⚙️  Extracting OHLCV data...")
 
 # Extract OHLCV
 open_prices = df['Open'].values
@@ -114,7 +139,7 @@ features = {
 # FEATURE CALCULATION
 # ================================
 
-print("Calculating features...")
+print(f"\n⚙️  Calculating basic features ({len(features)} indicators)...")
 
 # Determine minimum period needed for all indicators
 MIN_PERIODS = LONG_WINDOW  # We need at least 20 periods for all features to be meaningful
@@ -189,7 +214,7 @@ for i in tqdm(range(n)):
 # TECHNICAL INDICATORS CALCULATION
 # ================================
 
-print("Calculating technical indicators...")
+print(f"\n📊 Calculating technical indicators (RSI, MACD, Bollinger, ATR, CCI, DI)...")
 
 for i in tqdm(range(n)):
     # === RSI (Relative Strength Index) ===
@@ -328,45 +353,50 @@ for i in tqdm(range(n)):
 # CREATE FEATURE DATAFRAME
 # ================================
 
+print(f"\n✓ All features calculated. Creating output dataframe...")
 features_df = pd.DataFrame(features)
 
 # Combine with original data
 result_df = pd.concat([df, features_df], axis=1)
 
 # ================================
-# FEATURE STATISTICS & DIAGNOSTICS
+# FEATURE DIAGNOSTICS & ANALYSIS
 # ================================
 
-print("\n===== FEATURE STATISTICS =====")
+print(f"\n===== 📊 FEATURE STATISTICS =====\"
 print(features_df.describe())
 
-print("\n===== NAN COUNT =====")
+print(f"\n===== ⚠️  NAN SUMMARY =====")
 nan_counts = features_df.isna().sum()
-print(nan_counts[nan_counts > 0])  # Only show features with NaNs
+if len(nan_counts[nan_counts > 0]) > 0:
+    print(nan_counts[nan_counts > 0])
+else:
+    print("   ✓ All features have valid data (no NaNs after warmup period)")
 
-print("\n===== FEATURE CORRELATION WITH LABELS =====")
+print(f"\n===== 🔗 FEATURE CORRELATION WITH LABELS =====\"
 for label in ['buy_label', 'sell_label', 'idk_label']:
-    print(f"\n{label}:")
+    print(f"\n  {label} (top 5 correlated features):")
     correlations = features_df.corrwith(df[label]).sort_values(ascending=False)
-    print(correlations.head(10))
+    for feature, corr in correlations.head(5).items():
+        print(f"     {feature:20s}: {corr:+.4f}")
 
 # ================================
-# SAVE OUTPUT
+# SAVE ENGINEERED FEATURES
 # ================================
 
 result_df.to_csv(OUTPUT_PATH, index=False)
 
-print(f"\n✓ Features saved to: {OUTPUT_PATH}")
-print(f"Total columns: {len(result_df.columns)}")
-print(f"Feature count: {len(features_df.columns)}")
-print(f"Total samples: {len(result_df)}")
-print(f"Samples with NaN features (warmup period): {features_df.isna().any(axis=1).sum()}")
-print(f"Usable samples for training: {(~features_df.isna().any(axis=1)).sum()}")
+print(f"\n💾 Features saved to: {OUTPUT_PATH}")
+print(f"\n   📋 Summary:")
+print(f"      Total columns:        {len(result_df.columns):,}")
+print(f"      Feature count:        {len(features_df.columns):,}")
+print(f"      Total samples:        {len(result_df):,}")
+print(f"      Warmup rows (NaN):    {features_df.isna().any(axis=1).sum():,}")
+print(f"      Usable samples:       {(~features_df.isna().any(axis=1)).sum():,}")
 
-# ================================
-# MEMORY CHECK
-# ================================
-
-# just a random check, too low memory usge could indicate a bunch of missing data
+# Memory footprint check
 mem_usage = result_df.memory_usage(deep=True).sum() / 1024**2
-print(f"Memory usage: {mem_usage:.2f} MB")
+print(f"      Memory usage:         {mem_usage:.2f} MB")
+
+if (~features_df.isna().any(axis=1)).sum() / len(result_df) < 0.5:
+    print(f"\n   ⚠️  WARNING: Less than 50% of data is usable (high NaN rate during warmup)")
