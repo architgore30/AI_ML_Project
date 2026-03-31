@@ -105,13 +105,17 @@ else:                                      NO_TRADE
 
 ## Current Status
 
-### Latest Results (Post-2018 Data + Strong Class Weights)
+### Latest Results (Post-2018 Data + Aggressive Class Weights) ✅ BREAKTHROUGH
 
-**Full Dataset (4.3M samples)**:
-- BUY Model ROC-AUC: 0.7667
-- SELL Model ROC-AUC: 0.7435
-- Trade generation rate: 63% (with uncertainty filter)
-- Primary issue: Model floods with SELL signals, zero BUY predictions
+**Test Set (866k samples, post-2018 only)**:
+- BUY Model ROC-AUC: 0.7768 | Recall: **47%** | Precision: 21% | F1: 0.29
+- SELL Model ROC-AUC: 0.7463 | Recall: 73% | Precision: 30% | F1: 0.43
+- **Trade generation: 240,966 signals (27.82%)** - realistic frequency
+- **BUY signals: 1,286** (was 0 before!) ✓
+- **SELL signals: 239,680** (controlled from 875k flood)
+- **NO_TRADE: 625,119** (uncertainty filter working well)
+
+**The Fix That Worked**: Removed pre-2018 data (old regime, 17.5% zero-volume samples) + applied aggressive class weighting. BUY recall jumped from 3% → 47%.
 
 ### Key Findings
 
@@ -130,10 +134,10 @@ else:                                      NO_TRADE
 
 ### Known Issues
 
-1. **Binary prediction bias**: Model either floods with signals or generates nothing; uncertainty filter (0.7/0.3) doesn't work at extremes
-2. **Class imbalance**: BUY samples rare (8% even post-2018); SELL more common (20%)
-3. **SELL precision low** (24%): Many false positives after filtering
-4. **BUY recall near zero** (3%): Threshold too strict, model doesn't reach 70% confidence
+1. ✅ **SOLVED: BUY signal generation** - Now producing 1,286 BUY predictions vs zero before
+2. ✅ **SOLVED: Trade frequency flood** - Down from 63% to 27.82% - realistic
+3. ⚠️ **Precision still low**: BUY 21%, SELL 30% (must validate in backtesting whether profitable)
+4. ⚠️ **Class imbalance remains**: BUY labels still rare even in post-2018 data
 
 ### Active Hypotheses
 

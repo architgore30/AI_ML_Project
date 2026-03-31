@@ -213,7 +213,30 @@ Created data_visualization.py to understand dataset characteristics. Results val
 **New Interpretation:**
 This suggests that the real challenge is recent data regime behavior. The model should prioritize post-2018 features and potentially apply filtering/resampling to avoid old-cycle dominance (even if old data volume is higher).
 
-**Next Steps:**
-Option 1: Retrain on recent data only (2018+, ~4.3M samples)
-Option 2: Increase class weights aggressively for rare BUY signals
-Option 3: Both - recent data + aggressive class weights
+**BREAKTHROUGH: Post-2018 Data + Aggressive Class Weights**
+
+Applied both fixes simultaneously on post-2018 Bitcoin data (~4.3M samples) with strong class weight amplification.
+
+**Results (Test Set: 866k samples):**
+- BUY Model ROC-AUC: 0.7768 (+0.01)
+- BUY Recall: 47% (was 3%, massive jump!) ✓
+- BUY Precision: 21% (tradeoff for recall, acceptable)
+- SELL Model ROC-AUC: 0.7463 (+0.003)
+- SELL Recall: 73% (was 88%, cleaner)
+- SELL Precision: 30% (was 24%, improved)
+
+**Trade Generation (MAJOR IMPROVEMENT):**
+- BUY signals: 1,286 (was 0! Finally generating buys!) ✓✓✓
+- SELL signals: 239,680 (was 875,992, controlled from flood)
+- Total trades: 240,966 (27.82% of data, was 63.39%)
+- NO_TRADE: 625,119 (working well)
+
+**Key Insight:**
+Pre-2018 data was teaching model "default = no trade". Removing it + aggressive class weights let the model learn real BUY/SELL patterns from modern crypto behavior.
+
+**Feature Importance (now balanced better):**
+- ATR dominant but healthy (40%, not 90%)
+- Bollinger Bands supporting (30%)
+- Volume + MACD + MAs meaningful (5-10% each)
+
+**Next:** Backtest to validate if 21% BUY precision and 30% SELL precision are profitable despite traditional metric limitations.
