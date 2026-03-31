@@ -161,3 +161,59 @@ Performance is still poor but dramatically improved from baseline:
 **KEY INSIGHT:** The tuned parameters work - we now have 15x more BUY signals and 4x more SELL signals. The model quality is poor on 200k data but the foundation is solid. Full 7.5M dataset should produce a good model based on the 30-40% ROC-AUC improvement we saw when scaling up previously.
 
 **NEXT:** Train on full dataset with these tuned parameters.
+
+---
+
+**FULL DATASET RESULTS (Tuned Parameters)**
+
+ROC-AUC improved to acceptable levels but model is still heavily biased:
+- BUY ROC-AUC: 0.7667 (decent, but recall collapsed to 3% - misses 97% of real BUY signals)
+- SELL ROC-AUC: 0.7435 (decent, but precision only 24% - 76% false positives)
+
+**Label Distribution:**
+- BUY labels: 99,006 (7.16% of 1.38M test set)
+- SELL labels: 242,725 (17.56% of test set)
+- Total tradable events: 341,731
+
+**Trade Generation:**
+- Total trades generated: 875,992 (63.39% of all samples)
+- BUY signals: 0 (uncertainty filter too strict at 0.7/0.3)
+- SELL signals: 875,992 (63.39% of data)
+- NO_TRADE: 505,860
+
+**The Problem:** 
+ROC-AUC is good but model output is binary - it either floods with SELL signals (63% trade rate) or generates nothing. The uncertainty filter (0.7/0.3) kills BUY predictions. System can only do SELL signals reliably at this threshold.
+
+**What's Next:**
+Either:
+1. Lower decision thresholds to reduce trade frequency (0.6/0.4 or 0.55/0.45)
+2. Trade SELL-only and accept 24% precision (backtest to validate)
+3. Further fine-tune labeling thresholds to improve model discrimination
+
+---
+
+**DATA ANALYSIS - OLD DATA BIAS CONFIRMED**
+
+Created data_visualization.py to understand dataset characteristics. Results validate the hypothesis:
+
+**Volume Distribution (all 7.5M samples):**
+- 17.52% samples have ZERO volume (no trading activity)
+- Mean volume: 5, Median: 0 (extremely skewed toward low activity)
+- High volatility: coefficient of variation 4.31
+
+**Data Timing Update (from your observation):**
+- Before 2018: higher average volume but also extremely noisy/volatile regime with large directional blowups.
+- 2018 onwards: lower average volume, narrower range of moves, and less extreme tails.
+
+**Domain knowledge note (critical):**
+- 2018 is a natural regime breakpoint for Bitcoin: early-cycle hyper-growth and nascent liquidity before 2018, versus maturation and structural market microstructure after 2018.
+- For our trend detection ML, this means we cannot treat all history as homogeneous; the model must account for regime shifts.
+- In practice, we should test separate training on 2018+ data or include a regime feature (e.g., `era = {pre-2018, post-2018}`) to avoid skewing predictions with unstable old-cycle behavior.
+
+**New Interpretation:**
+This suggests that the real challenge is recent data regime behavior. The model should prioritize post-2018 features and potentially apply filtering/resampling to avoid old-cycle dominance (even if old data volume is higher).
+
+**Next Steps:**
+Option 1: Retrain on recent data only (2018+, ~4.3M samples)
+Option 2: Increase class weights aggressively for rare BUY signals
+Option 3: Both - recent data + aggressive class weights

@@ -77,14 +77,22 @@ print(f"BUY ratio: {buy_ratio_train:.4f}")
 print(f"SELL ratio: {sell_ratio_train:.4f}")
 
 # Compute class weights (to handle imbalance)
-buy_weight = 1 / buy_ratio_train if buy_ratio_train > 0 else 1
-sell_weight = 1 / sell_ratio_train if sell_ratio_train > 0 else 1
-buy_weight /= (buy_weight + sell_weight)
-sell_weight /= (buy_weight + sell_weight)
+# Keep strong imbalance handling per label, without diluting to a shared normalized value.
+buy_weight_raw = 1 / buy_ratio_train if buy_ratio_train > 0 else 1
+sell_weight_raw = 1 / sell_ratio_train if sell_ratio_train > 0 else 1
 
-print(f"\nClass weights (normalized):")
-print(f"BUY: {buy_weight:.4f}")
-print(f"SELL: {sell_weight:.4f}")
+print(f"\nClass weights (raw inverse frequency):")
+print(f"BUY positive weight approx: {buy_weight_raw:.2f}")
+print(f"SELL positive weight approx: {sell_weight_raw:.2f}")
+
+# Optional saturation factor to upweight rare positives even more
+WEIGHT_FACTOR = 1.0  # can tune (1.0, 2.0, 5.0)
+buy_weight = buy_weight_raw * WEIGHT_FACTOR
+sell_weight = sell_weight_raw * WEIGHT_FACTOR
+
+print(f"\nEffective class weight factors (for sample_weight in training):")
+print(f"BUY class positive weight: {buy_weight:.2f}")
+print(f"SELL class positive weight: {sell_weight:.2f}")
 
 # ================================
 # TRAIN XGBOOST (MULTI-OUTPUT)
@@ -102,7 +110,8 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     
     # Class weight for this label
     class_weight = buy_weight if label_name == 'buy' else sell_weight
-    sample_weight = np.where(y_train_label == 1, class_weight, 1 - class_weight)
+    # Positive examples are up-weighted; negatives are base weight 1.
+    sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
     
     model = GradientBoostingClassifier(
         n_estimators=1,  # Start with 1 tree

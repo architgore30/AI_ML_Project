@@ -20,8 +20,14 @@ MAX_HORIZON = 60 # minutes → doubled window for trend formation
 df = pd.read_csv(DATA_PATH)
 df = df.dropna().reset_index(drop=True)
 
-# testing on smaller subset first
-df = df.tail(200000)
+# ====== regime filter ====
+# Keep only post-2018 data to focus model on the modern crypto market behavior.
+# Timestamp is Unix seconds in this dataset.
+df['DateTime'] = pd.to_datetime(df['Timestamp'], unit='s')
+df = df[df['DateTime'] >= '2018-01-01']
+
+# Optional: uncomment for faster debug cycles
+# df = df.tail(200000)
 
 close = df['Close'].values
 n = len(df)
