@@ -334,23 +334,23 @@ Test Set: 866,085 samples (post-2018 Bitcoin, 1-minute bars)
 BUY MODEL PERFORMANCE:
 | Model | Factor | ROC-AUC | Recall | Precision | F1 | BUY Signals | Version Image |
 |-------|--------|---------|--------|-----------|----|--------------  |----------  --------|
-| Baseline | 1.0 | 0.7768 | 47% | 21% | 0.29 | 1,286 | v4_models |
-| Aggressive | 2.0 | 0.7753 | 74% | 15% | 0.21 | 3,095 | v4_models-2 |
-| Extreme | 3.0 | **0.7782** | **86%** | 12% | 0.21 | **3,571** | v4_models-3 |
+| Baseline | 1.0 | 0.7768 | 47% | 21% | 0.29 | 1,286 | [v4_models](../model_version_results/v4_models_importance.png) |
+| Aggressive | 2.0 | 0.7753 | 74% | 15% | 0.21 | 3,095 | [v4_models-2](../model_version_results/v4_models-2_importance.png) |
+| Extreme | 3.0 | **0.7782** | **86%** | 12% | 0.21 | **3,571** | [v4_models-3](../model_version_results/v4_models-3_importance.png) |
 
 SELL MODEL PERFORMANCE:
 | Model | Factor | ROC-AUC | Recall | Precision | F1 | SELL Signals | Version Image |
 |-------|--------|---------|--------|-----------|----|-----------  ---|----------  ---------|
-| Baseline | 1.0 | 0.7463 | 73% | 30% | 0.43 | 239,680 | v4_models |
-| Aggressive | 2.0 | 0.7466 | 90% | 24% | 0.36 | 261,598 | v4_models-2 |
-| Extreme | 3.0 | 0.7461 | **95%** | 22% | 0.36 | **238,367** | v4_models-3 |
+| Baseline | 1.0 | 0.7463 | 73% | 30% | 0.43 | 239,680 | [v4_models](../model_version_results/v4_models_importance.png) |
+| Aggressive | 2.0 | 0.7466 | 90% | 24% | 0.36 | 261,598 | [v4_models-2](../model_version_results/v4_models-2_importance.png) |
+| Extreme | 3.0 | 0.7461 | **95%** | 22% | 0.36 | **238,367** | [v4_models-3](../model_version_results/v4_models-3_importance.png) |
 
 TRADE GENERATION & UNCERTAINTY FILTER:
 | Model | Factor | Total Trades | BUY | SELL | NO_TRADE | Freq % | Version |
 |-------|--------|--------------|-----|------|----------|--------|----------  |
-| Baseline | 1.0 | 240,966 | 1,286 | 239,680 | 625,119 | 27.82% | v4_models |
-| Aggressive | 2.0 | 264,693 | 3,095 | 261,598 | 602,392 | 30.58% | v4_models-2 |
-| Extreme | 3.0 | 241,938 | 3,571 | 238,367 | 624,147 | 27.93% | v4_models-3 |
+| Baseline | 1.0 | 240,966 | 1,286 | 239,680 | 625,119 | 27.82% | [v4_models](../model_version_results/v4_models_importance.png) |
+| Aggressive | 2.0 | 264,693 | 3,095 | 261,598 | 602,392 | 30.58% | [v4_models-2](../model_version_results/v4_models-2_importance.png) |
+| Extreme | 3.0 | 241,938 | 3,571 | 238,367 | 624,147 | 27.93% | [v4_models-3](../model_version_results/v4_models-3_importance.png) |
 
 KEY OBSERVATIONS (Recall-Precision Tradeoff):
 
@@ -376,13 +376,13 @@ KEY OBSERVATIONS (Recall-Precision Tradeoff):
    - Volatility SMA, MACD signal supporting: 120-150 importance
    - **Finding**: Factors only emphasize rare cases, don't change feature utility
 
-IMAGE VERSION HISTORY & MAPPING:
-- **v1**: Initial 200k subset training (pre-parameter tuning, poor results: ROC-AUC 0.56-0.65, zero BUY signals)
-- **v2**: Full 7.5M dataset baseline test (untuned parameters, 30-40% ROC-AUC improvement validated)
-- **v3**: Full 7.5M post-2018 filtered data (tuned TP=0.8%, SL=0.5%, MAX_HORIZON=60, breakthrough results: BUY 0→1,286)
-- **v4_models**: FACTOR=1.0 baseline tier (2026-03-31, provides balanced precision/recall, feature importance baseline)
-- **v4_models-2**: FACTOR=2.0 aggressive tier (2026-03-31, pushes recall higher, empirical recall/precision tradeoff confirmed)
-- **v4_models-3**: FACTOR=3.0 extreme tier (2026-03-31, maximum recall with lowest precision, nearest-max coverage achieved)
+IMAGE VERSION HISTORY & MAPPING (model_version_results/):
+- **v1_initial_test.png**: Initial 200k subset training (pre-parameter tuning, poor results: ROC-AUC 0.56-0.65, zero BUY signals)
+- **v2_full_data.png**: Full 7.5M dataset baseline test (untuned parameters, 30-40% ROC-AUC improvement validated)
+- **v3_post2018_tuned.png**: Full 7.5M post-2018 filtered data (tuned TP=0.8%, SL=0.5%, MAX_HORIZON=60, breakthrough results: BUY 0→1,286)
+- **v4_models_importance.png**: FACTOR=1.0 baseline tier (2026-03-31, provides balanced precision/recall, feature importance baseline)
+- **v4_models-2_importance.png**: FACTOR=2.0 aggressive tier (2026-03-31, pushes recall higher, empirical recall/precision tradeoff confirmed)
+- **v4_models-3_importance.png**: FACTOR=3.0 extreme tier (2026-03-31, maximum recall with lowest precision, nearest-max coverage achieved)
 
 BACKTEST NEXT STEP:
 All 3 tiers now trained and ready for backtesting. Must run backtest.py on each to determine which tier:

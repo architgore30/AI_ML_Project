@@ -133,8 +133,8 @@ sample_weight = np.where(y == 1, weight, 1.0)  # Rare cases get boost
 
 **Decision Logic** (Uncertainty Filter):
 ```python
-if buy_prob > 0.7 and sell_prob < 0.3:    TRADE BUY
-elif sell_prob > 0.7 and buy_prob < 0.3:  TRADE SELL
+if buy_prob > 0.5 and sell_prob < 0.5:    TRADE BUY
+elif sell_prob > 0.5 and buy_prob < 0.5:  TRADE SELL
 else:                                      NO_TRADE
 ```
 
@@ -175,17 +175,17 @@ else:                                      NO_TRADE
 
 | Tier | Factor | Directory | ROC-AUC | Recall | Precision | F1 | BUY Signals | Feature Img |
 |------|--------|-----------|---------|--------|-----------|-----|-----------  |----------  --------|
-| **Baseline** | 1.0 | `models/` | 0.7768 | 47% | 21% | 0.29 | 1,286 | v4_models |
-| **Aggressive** | 2.0 | `models-2/` | 0.7753 | 74% | 15% | 0.21 | 3,095 | v4_models-2 |
-| **Extreme** | 3.0 | `models-3/` | **0.7782** | **86%** | 12% | 0.21 | **3,571** | v4_models-3 |
+| **Baseline** | 1.0 | `models/` | 0.7768 | 47% | 21% | 0.29 | 1,286 | [v4_models](model_version_results/v4_models_importance.png) |
+| **Aggressive** | 2.0 | `models-2/` | 0.7753 | 74% | 15% | 0.21 | 3,095 | [v4_models-2](model_version_results/v4_models-2_importance.png) |
+| **Extreme** | 3.0 | `models-3/` | **0.7782** | **86%** | 12% | 0.21 | **3,571** | [v4_models-3](model_version_results/v4_models-3_importance.png) |
 
 #### SELL Model Performance Across Tiers:
 
 | Tier | Factor | Directory | ROC-AUC | Recall | Precision | F1 | SELL Signals | Feature Img |
 |------|--------|-----------|---------|--------|-----------|-----|-----------  |----------  --------|
-| **Baseline** | 1.0 | `models/` | 0.7463 | 73% | 30% | 0.43 | 239,680 | v4_models |
-| **Aggressive** | 2.0 | `models-2/` | 0.7466 | 90% | 24% | 0.36 | 261,598 | v4_models-2 |
-| **Extreme** | 3.0 | `models-3/` | 0.7461 | **95%** | 22% | 0.36 | **238,367** | v4_models-3 |
+| **Baseline** | 1.0 | `models/` | 0.7463 | 73% | 30% | 0.43 | 239,680 | [v4_models](model_version_results/v4_models_importance.png) |
+| **Aggressive** | 2.0 | `models-2/` | 0.7466 | 90% | 24% | 0.36 | 261,598 | [v4_models-2](model_version_results/v4_models-2_importance.png) |
+| **Extreme** | 3.0 | `models-3/` | 0.7461 | **95%** | 22% | 0.36 | **238,367** | [v4_models-3](model_version_results/v4_models-3_importance.png) |
 
 #### Trade Generation & Uncertainty Filter:
 
@@ -306,6 +306,14 @@ Removed pre-2018 data (old regime, 17.5% zero-volume samples) + tuned labeling t
 │   ├── predictions_test.csv         # Test set predictions (FACTOR=3.0)
 │   ├── backtest_results.png         # 4-panel P&L visualization
 │   └── backtest_trade_log.csv       # Detailed trade log
+│
+├── model_version_results/           # Version comparison & analysis images
+│   ├── v1_initial_test.png          # First 200k subset run (poor: ROC-AUC 0.56-0.65)
+│   ├── v2_full_data.png             # Full 7.5M data run (improved but regime issues)
+│   ├── v3_post2018_tuned.png        # Post-2018 filtered + tuned (breakthrough)
+│   ├── v4_models_importance.png     # Feature importance (FACTOR=1.0)
+│   ├── v4_models-2_importance.png   # Feature importance (FACTOR=2.0)
+│   └── v4_models-3_importance.png   # Feature importance (FACTOR=3.0)
 │
 ├── labeled_data.csv                 # Output from labelling.py
 ├── features.csv                     # Output from features.py
