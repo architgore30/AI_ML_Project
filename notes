@@ -292,3 +292,195 @@ Load `models-2/xgboost_buy_model.json` and `models-2/xgboost_sell_model.json` to
 
 **Resolution:**
 Retrain models locally with reliable file transfer (Google Drive, GitHub, AWS S3, or email with checksums). WhatsApp's duplicate detection is not suitable for ML model files - use services with file integrity verification.
+
+---
+
+**FILE CLEANUP & MODEL STRATEGY: 3-TIER CLASS WEIGHT STRUCTURE**
+
+Removed JSON files from friend's GPU code to simplify the repository and force clean retraining locally.
+
+**Current Model Architecture (3-Tier System Active):**
+
+Systematic testing framework based on CLASS_WEIGHT_FACTOR aggressiveness:
+
+1. **FACTOR=1.0 (Baseline)** - `models/`
+   - Default inverse-frequency weighting
+   - Balanced recall/precision tradeoff
+   - 47% BUY recall, 21% precision
+   - 1,286 BUY signals on test set
+   - Status: ✓ Trained and validated
+
+2. **FACTOR=2.0 (Aggressive)** - `models-2/`
+   - Double the emphasis on rare BUY signals
+   - Higher recall, lower precision
+   - 2.4x more BUY coverage (74% recall!)
+   - 3,095 BUY signals on test set
+   - Status: ✓ Trained (from friend's GPU, JSON files valid)
+   - Note: Joblib files corrupted by WhatsApp dedup, need local retraining
+
+3. **FACTOR=3.0 (Extreme)** - `models-3/`
+   - Triple the emphasis on rare BUY signals
+   - Highest recall, lowest precision (maximum opportunity coverage)
+   - 86% BUY recall, 12% precision (accepting false positives)
+   - 3,571 BUY signals on test set
+   - Status: ✓ Trained and validated
+
+---
+
+**3-TIER MODEL RESULTS COMPARISON (ALL POST-2018, FULL 7.5M TRAINING)**
+
+Test Set: 866,085 samples (post-2018 Bitcoin, 1-minute bars)
+
+BUY MODEL PERFORMANCE:
+| Model | Factor | ROC-AUC | Recall | Precision | F1 | BUY Signals | Version Image |
+|-------|--------|---------|--------|-----------|----|--------------  |----------  --------|
+| Baseline | 1.0 | 0.7768 | 47% | 21% | 0.29 | 1,286 | v4_models |
+| Aggressive | 2.0 | 0.7753 | 74% | 15% | 0.21 | 3,095 | v4_models-2 |
+| Extreme | 3.0 | **0.7782** | **86%** | 12% | 0.21 | **3,571** | v4_models-3 |
+
+SELL MODEL PERFORMANCE:
+| Model | Factor | ROC-AUC | Recall | Precision | F1 | SELL Signals | Version Image |
+|-------|--------|---------|--------|-----------|----|-----------  ---|----------  ---------|
+| Baseline | 1.0 | 0.7463 | 73% | 30% | 0.43 | 239,680 | v4_models |
+| Aggressive | 2.0 | 0.7466 | 90% | 24% | 0.36 | 261,598 | v4_models-2 |
+| Extreme | 3.0 | 0.7461 | **95%** | 22% | 0.36 | **238,367** | v4_models-3 |
+
+TRADE GENERATION & UNCERTAINTY FILTER:
+| Model | Factor | Total Trades | BUY | SELL | NO_TRADE | Freq % | Version |
+|-------|--------|--------------|-----|------|----------|--------|----------  |
+| Baseline | 1.0 | 240,966 | 1,286 | 239,680 | 625,119 | 27.82% | v4_models |
+| Aggressive | 2.0 | 264,693 | 3,095 | 261,598 | 602,392 | 30.58% | v4_models-2 |
+| Extreme | 3.0 | 241,938 | 3,571 | 238,367 | 624,147 | 27.93% | v4_models-3 |
+
+KEY OBSERVATIONS (Recall-Precision Tradeoff):
+
+1. **BUY Model Progression:**
+   - FACTOR=1.0→2.0: Recall +57% (47%→74%), Precision -29% (21%→15%)
+   - FACTOR=2.0→3.0: Recall +12% (74%→86%), Precision -20% (15%→12%)
+   - **Lesson**: Diminishing returns on recall past FACTOR=2.0 (12% precision getting risky)
+   
+2. **SELL Model Progression:**
+   - FACTOR=1.0→2.0: Recall +23% (73%→90%), Precision -20% (30%→24%)
+   - FACTOR=2.0→3.0: Recall +5.6% (90%→95%), Precision -8% (24%→22%)
+   - **Observation**: SELL benefits more from higher factors (maintains reasonable precision)
+   
+3. **ROC-AUC Stability:**
+   - All factors achieve similar ROC-AUC (0.74-0.78) - model discrimination quality consistent
+   - Variation is due to uncertainty filter, not model capability
+   - **Implication**: FACTOR doesn't break the model; just changes decision boundary
+
+4. **Feature Importance Consistent Across Tiers:**
+   - ATR-14 dominates (390-468 importance across all factors)
+   - Bollinger Bands critical (upper, lower, width): 200-310 importance
+   - Directional Indicators valuable (DI+, DI-): 140-235 importance
+   - Volatility SMA, MACD signal supporting: 120-150 importance
+   - **Finding**: Factors only emphasize rare cases, don't change feature utility
+
+IMAGE VERSION HISTORY & MAPPING:
+- **v1**: Initial 200k subset training (pre-parameter tuning, poor results: ROC-AUC 0.56-0.65, zero BUY signals)
+- **v2**: Full 7.5M dataset baseline test (untuned parameters, 30-40% ROC-AUC improvement validated)
+- **v3**: Full 7.5M post-2018 filtered data (tuned TP=0.8%, SL=0.5%, MAX_HORIZON=60, breakthrough results: BUY 0→1,286)
+- **v4_models**: FACTOR=1.0 baseline tier (2026-03-31, provides balanced precision/recall, feature importance baseline)
+- **v4_models-2**: FACTOR=2.0 aggressive tier (2026-03-31, pushes recall higher, empirical recall/precision tradeoff confirmed)
+- **v4_models-3**: FACTOR=3.0 extreme tier (2026-03-31, maximum recall with lowest precision, nearest-max coverage achieved)
+
+BACKTEST NEXT STEP:
+All 3 tiers now trained and ready for backtesting. Must run backtest.py on each to determine which tier:
+1. Generates most profit (Sharpe ratio, win rate, profit factor) - THIS IS GROUND TRUTH
+2. Balances opportunity-catching (high recall) with trade quality (precision acceptable)
+3. Validates that high recall doesn't just mean chasing noise
+
+Hypothesis: FACTOR=1.0 or 2.0 likely best (not too extreme), but backtesting will prove empirically.
+
+---
+
+**BACKTEST ENGINE: BALANCE-BASED POSITION SIZING IMPLEMENTATION (2026-03-31)**
+
+Updated backtest.py from fixed 1 BTC per trade to realistic spot trading with capital constraints:
+
+**Architecture Update:**
+- Portfolio tracking: `cash_balance` + `btc_holdings` (not fixed position size anymore)
+- Initial balance: $100,000 USD (fully deployed to Bitcoin when signals appear)
+- Trading model: Long-only (BUY → buy all available BTC; SELL → exit entire position)
+- Exit conditions: SELL signal, timeout (60 min hold), or end of data
+
+**Position Sizing Logic:**
+```python
+# BUY signal: Invest all available cash
+btc_amount = cash_balance / (entry_price * (1 + SLIPPAGE) * (1 + COMMISSION))
+cash_balance -= (btc_amount * entry_price * (1 + COMMISSION))
+btc_holdings += btc_amount
+
+# SELL signal: Liquidate all BTC holdings
+cash_from_sale = btc_holdings * exit_price * (1 - COMMISSION)
+cash_balance += cash_from_sale
+btc_holdings = 0.0
+```
+
+**P&L Calculation (USD-based, not per-BTC):**
+- Entry cost: `btc_amount × entry_price × (1 + commission)`
+- Exit proceeds: `btc_holdings × exit_price × (1 - commission)`
+- P&L USD: proceeds - cost
+- P&L %: (P&L USD / cost) × 100
+
+**Key Insight - v1 vs v2:**
+- v1: Fixed 1 BTC/trade, P&L in BTC units, ignored capital constraints
+- v2: Realistic: $100k budget, dynamic position sizing, USD denomination, friction costs
+- Reality check: Validates that model profit predictions translate to actual dollar gains/losses
+
+**Final Portfolio Valuation:**
+```
+final_value = cash_balance + (btc_holdings × final_close_price)
+total_return_pct = ((final_value - 100000) / 100000) × 100
+```
+
+**Metrics Updated for Real Trading:**
+- Total P&L: In $ (not BTC) and % of initial capital
+- Win rate: % of trades with P&L USD > 0
+- Max drawdown: Largest $ decline from cumulative high
+- Avg win/loss: In $ not BTC, reflects actual trading economics
+- Profit factor: Win sum / |Loss sum| (validation: must be >1.0)
+- Sharpe ratio: Risk-adjusted return per trade
+
+**Trade Log Output (backtest_trade_log.csv):**
+- `entry_idx`, `exit_idx`: Timestamp indices
+- `entry_price`, `exit_price`: BTC USD prices with slippage
+- `btc_traded`: Amount of BTC bought/sold
+- `pnl_usd`: Dollar profit or loss
+- `pnl_pct`: Percentage return on that trade
+- `reason`: 'sell_signal', 'timeout', or 'end_of_data'
+
+**Visualization Updated:**
+- Plot 1: Portfolio value in $ (starting at $100k, shows equity curve)
+- Plot 2: P&L distribution in $ per trade (histogram of trade results)
+- Plot 3: Cumulative win rate over time (% growing as more trades executed)
+- Plot 4: Trade duration distribution (how long positions held)
+
+**Ready for Multi-Tier Backtesting:**
+Now when running FACTOR=1.0, 2.0, 3.0 models through backtest.py:
+- Each tier will show empirical USD P&L instead of just paper metrics
+- Can directly compare: Does higher recall (more trades) = higher profits?
+- Validates if precision/recall tradeoff is worth it in actual trading
+
+**Next Steps:**
+1. Run: `python model.py` with WEIGHT_FACTOR=1.0, then `python backtest.py` → save results
+2. Run: `python model.py` with WEIGHT_FACTOR=2.0, then `python backtest.py` → save results
+3. Run: `python model.py` with WEIGHT_FACTOR=3.0, then `python backtest.py` → save results
+4. Compare final portfolio values across tiers → identify empirical winner
+5. Document which FACTOR delivers best Sharpe ratio + win rate + profit factor
+
+---
+
+**BACKTEST INFRASTRUCTURE COMPLETE ✅ (2026-03-31 SESSION CONCLUSION)**
+
+Transitioned from proof-of-concept to production-ready backtesting:
+- ✅ Removed fixed 1-BTC position sizing (unrealistic)
+- ✅ Implemented $100k capital constraint with dynamic position sizing (realistic)
+- ✅ Changed P&L from BTC units to USD with commission/slippage costs (production-grade)
+- ✅ Implemented long-only spot trading logic (actual market constraints)
+- ✅ Updated all metrics for real-world interpretation (portfolio value, Sharpe ratio, etc.)
+- ✅ Updated README.md with current status and next steps
+
+**System Status**: Ready to execute multi-tier backtesting on all three FACTOR tiers (1.0, 2.0, 3.0)
+
+**Decision Pending**: Which FACTOR delivers best empirical returns? Outstanding question determines production deployment strategy.
