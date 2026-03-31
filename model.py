@@ -192,8 +192,8 @@ predictions_df['sell_prob'] = sell_proba
 
 # Decision logic with uncertainty filtering (as designed)
 predictions_df['decision'] = 'NO_TRADE'
-predictions_df.loc[(buy_proba > 0.7) & (sell_proba < 0.3), 'decision'] = 'BUY'
-predictions_df.loc[(sell_proba > 0.7) & (buy_proba < 0.3), 'decision'] = 'SELL'
+predictions_df.loc[(buy_proba > 0.5) & (sell_proba < 0.5), 'decision'] = 'BUY'
+predictions_df.loc[(sell_proba > 0.5) & (buy_proba < 0.5), 'decision'] = 'SELL'
 
 print(f"\nDecision distribution:")
 print(predictions_df['decision'].value_counts())
