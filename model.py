@@ -55,33 +55,33 @@ WEIGHT_FACTOR = 1.0  # 1.0=baseline, 2.0=aggressive, 3.0=extreme
 # LOAD DATA
 # ================================
 
-print(f"📂 Loading engineered features from {DATA_PATH}...")
+print(f"Loading engineered features from {DATA_PATH}...")
 df = pd.read_csv(DATA_PATH)
-print(f"   ✓ Loaded {len(df):,} samples")
+print(f"   Loaded {len(df):,} samples")
 
 # Drop rows with NaN features (warmup period for indicator calculation)
 df_clean = df.dropna()
-print(f"   ✓ After removing NaN warmup: {len(df_clean):,} samples remain")
+print(f"   After removing NaN warmup: {len(df_clean):,} samples remain")
 
 # ================================
 # TIME-BASED SPLIT (CHRONOLOGICAL, NO SHUFFLING)
 # ================================
 # Critical: Never shuffle time series! Always train on past, validate on future.
 
-print(f"\n⏱️  Time-based split (80/20)...")
+print(f"\nTime-based split (80/20)...")
 split_idx = int(len(df_clean) * TRAIN_RATIO)
 
 train_df = df_clean.iloc[:split_idx]
 test_df = df_clean.iloc[split_idx:]
 
-print(f"   ✓ Training set: {len(train_df):,} samples ({TRAIN_RATIO:.0%})")
-print(f"   ✓ Test set:     {len(test_df):,} samples ({1-TRAIN_RATIO:.0%})")
+print(f"   Training set: {len(train_df):,} samples ({TRAIN_RATIO:.0%})")
+print(f"   Test set:     {len(test_df):,} samples ({1-TRAIN_RATIO:.0%})")
 
 # ================================
 # SEPARATE FEATURES AND LABELS
 # ================================
 
-print(f"\n🔍 Extracting features and labels...")
+print(f"\nExtracting features and labels...")
 
 # List all feature columns (exclude OHLCV, volume, and labels)
 exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'Timestamp', 'DateTime']
@@ -243,7 +243,7 @@ print(predictions_df['decision'].value_counts())
 
 # Save predictions
 predictions_df.to_csv('predictions_test.csv', index=False)
-print("\n✓ Predictions saved to: predictions_test.csv")
+print("\nPredictions saved to: predictions_test.csv")
 
 # ================================
 # VISUALIZATION
@@ -285,7 +285,7 @@ ax4.set_title('Top 10 Features - SELL Model')
 
 plt.tight_layout()
 plt.savefig('xgboost_results.png', dpi=150, bbox_inches='tight')
-print("✓ Visualization saved to: xgboost_results.png")
+print("Visualization saved to: xgboost_results.png")
 plt.show()
 
 # ================================
@@ -303,7 +303,7 @@ print(f"BUY signals: {(predictions_df['decision'] == 'BUY').sum()}")
 print(f"SELL signals: {(predictions_df['decision'] == 'SELL').sum()}")
 print(f"NO_TRADE: {(predictions_df['decision'] == 'NO_TRADE').sum()}")
 
-print("\n✓ Training complete!")
+print("\nTraining complete!")
 
 # ================================
 # HOW TO USE SAVED MODELS

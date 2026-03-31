@@ -42,20 +42,20 @@ MAX_HORIZON = 60 # minutes to detect threshold hit (doubled from 30)
 # ================================
 
 # Load raw Bitcoin data
-print(f"📂 Loading data from {DATA_PATH}...")
+print(f"Loading data from {DATA_PATH}...")
 df = pd.read_csv(DATA_PATH)
-print(f"   ✓ Loaded {len(df)} raw samples")
+print(f"   Loaded {len(df)} raw samples")
 
 df = df.dropna().reset_index(drop=True)
-print(f"   ✓ Cleaned NaN values: {len(df)} samples remain")
+print(f"   Cleaned NaN values: {len(df)} samples remain")
 
-# ===== REGIME FILTER: Post-2018 Data Only =====
+# ====== REGIME FILTER: Post-2018 Data Only ======
 # Focus on modern cryptocurrency market behavior.
-# Pre-2018 has structural differences (low volume, different market structure).
+# Pre-2018 data has structural differences (low volume, different market structure).
 # Timestamp is Unix seconds in this dataset.
 df['DateTime'] = pd.to_datetime(df['Timestamp'], unit='s')
 df = df[df['DateTime'] >= '2018-01-01']
-print(f"   ✓ Regime filter (post-2018): {len(df)} samples remain")
+print(f"   Regime filter (post-2018): {len(df)} samples remain")
 
 # Optional: Uncomment for faster debug iterations during development
 # df = df.tail(200000)  # Tests on 200k samples instead of full dataset
@@ -77,7 +77,7 @@ idk_labels = np.zeros(n, dtype=np.int8)
 # - Else if price hits lower_threshold first → sell_label = 1 (downside risk detected)
 # - Else neither threshold → idk_label = 1 (market too noisy, no clear signal)
 
-for i in tqdm(range(n - MAX_HORIZON), desc="🏷️  Generating labels"):
+for i in tqdm(range(n - MAX_HORIZON), desc="Generating labels"):
     current_price = close[i]
 
     # Define threshold prices for this bar
@@ -109,7 +109,7 @@ df['buy_label'] = buy_labels
 df['sell_label'] = sell_labels
 df['idk_label'] = idk_labels
 
-print(f"✓ Labels attached to dataframe")
+print(f"Labels attached to dataframe")
 
 # ================================
 # LABEL DISTRIBUTION ANALYSIS
@@ -125,7 +125,7 @@ buy_ratio = buy_count / total
 sell_ratio = sell_count / total
 idk_ratio = idk_count / total
 
-print(f"\n===== 📊 LABEL DISTRIBUTION =====")
+print(f"\n===== LABEL DISTRIBUTION =====")
 print(f"  BUY signals:     {buy_count:,} ({buy_ratio:.2%})")
 print(f"  SELL signals:    {sell_count:,} ({sell_ratio:.2%})")
 print(f"  IDK (uncertain): {idk_count:,} ({idk_ratio:.2%})")
@@ -133,15 +133,15 @@ print(f"  ---")
 print(f"  Total bars:      {total:,}")
 
 # Validate mutual exclusion (critical property)
-print(f"\n✓ Validation checks:")
+print(f"Validation checks:")
 overlap_buy_sell = ((df['buy_label'] == 1) & (df['sell_label'] == 1)).sum()
 overlap_buy_idk = ((df['idk_label'] == 1) & (df['buy_label'] == 1)).sum()
 overlap_sell_idk = ((df['idk_label'] == 1) & (df['sell_label'] == 1)).sum()
 
 if overlap_buy_sell == 0 and overlap_buy_idk == 0 and overlap_sell_idk == 0:
-    print(f"   ✓ Labels are mutually exclusive (no overlap) ✓")
+    print(f"   Labels are mutually exclusive (no overlap)")
 else:
-    print(f"   ❌ ERROR: Found overlapping labels!")
+    print(f"   ERROR: Found overlapping labels!")
     print(f"      BUY & SELL overlap:  {overlap_buy_sell}")
     print(f"      BUY & IDK overlap:   {overlap_buy_idk}")
     print(f"      SELL & IDK overlap:  {overlap_sell_idk}")
@@ -151,6 +151,6 @@ else:
 # ================================
 
 df.to_csv(OUTPUT_PATH, index=False)
-print(f"\n💾 Labeled dataset saved to: {OUTPUT_PATH}")
+print(f"\nLabeled dataset saved to: {OUTPUT_PATH}")
 print(f"   Columns: buy_label, sell_label, idk_label (+ 35 feature columns)")
 print(f"   Rows: {len(df):,} samples (post-2018 regime)")

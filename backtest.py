@@ -50,19 +50,19 @@ INITIAL_BALANCE = 100000.0  # Starting USD balance (all deployed to BTC)
 # LOAD DATA
 # ================================
 
-print(f"📂 Loading predictions and features...")
+print(f"Loading predictions and features...")
 predictions = pd.read_csv(PREDICTIONS_PATH)
 features = pd.read_csv(FEATURES_PATH)
 
-print(f"   ✓ Predictions: {predictions.shape}")
-print(f"   ✓ Features:    {features.shape}")
+print(f"   Predictions: {predictions.shape}")
+print(f"   Features:    {features.shape}")
 
 # Align predictions with OHLC data
 # Get close prices for P&L calculation
 close_prices = features['Close'].values[-len(predictions):]
 timestamps = features['Timestamp'].values[-len(predictions):]
 
-print(f"\n⏱️  Test set: {len(predictions):,} bars")
+print(f"\nTest set: {len(predictions):,} bars")
 print(f"   Price range: ${close_prices.min():.2f} - ${close_prices.max():.2f}")
 
 # ================================
@@ -166,14 +166,14 @@ if position is not None and btc_holdings > 0:
 # BACKTEST ANALYSIS & RESULTS
 # ================================
 
-print(f"\n===== 📊 BACKTEST RESULTS =====\n")
+print(f"\n===== BACKTEST RESULTS =====\n")
 
 # Final portfolio value
 final_portfolio_value = cash_balance + (btc_holdings * close_prices[-1])
 total_return = final_portfolio_value - INITIAL_BALANCE
 total_return_pct = (total_return / INITIAL_BALANCE) * 100
 
-print(f"💰 Portfolio Status:")
+print(f"Portfolio Status:")
 print(f"   Initial balance:       ${INITIAL_BALANCE:,.2f}")
 print(f"   Final balance:         ${final_portfolio_value:,.2f}")
 print(f"   Total P&L:             ${total_return:,.2f} ({total_return_pct:+.2f}%)")
@@ -183,7 +183,7 @@ if btc_holdings > 0:
     print(f"   BTC value at close:    ${btc_holdings * close_prices[-1]:,.2f}")
 
 if len(trades) == 0:
-    print(f"\n⚠️  No trades executed! Model did not generate any signals above decision threshold.")
+    print(f"\nNo trades executed! Model did not generate any signals above decision threshold.")
 else:
     trades_df = pd.DataFrame(trades)
     
@@ -198,7 +198,7 @@ else:
     
     total_pnl_usd = trades_df['pnl_usd'].sum()
     
-    print(f"\n📈 Trade Summary:")
+    print(f"\nTrade Summary:")
     print(f"   Total trades:         {total_trades:,}")
     print(f"   Strategy:             Long-only (buy and hold until SELL signal or {ENTRY_TIMEOUT}-min timeout)")
     print(f"\n   Wins:                 {winning_trades:,} ({win_rate*100:.1f}%)")
@@ -218,7 +218,7 @@ else:
     max_drawdown_usd = drawdown_usd.min()
     max_drawdown_pct = (max_drawdown_usd / INITIAL_BALANCE) * 100
     
-    print(f"\n📉 Risk Metrics:")
+    print(f"\nRisk Metrics:")
     print(f"   Max drawdown:         ${max_drawdown_usd:,.2f} ({max_drawdown_pct:.2f}%)")
     
     # Sharpe ratio (approximate, per trade)
@@ -232,7 +232,7 @@ else:
 # VISUALIZATION & REPORTING
 # ================================
 
-print(f"\n📊 Generating visualizations...")
+print(f"\nGenerating visualizations...")
 
 if len(trades) > 0:
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -287,18 +287,18 @@ if len(trades) > 0:
     
     plt.tight_layout()
     plt.savefig(f'{MODEL_PATH}/backtest_results.png', dpi=150, bbox_inches='tight')
-    print(f"   ✓ Chart saved: {MODEL_PATH}/backtest_results.png")
+    print(f"   Chart saved: {MODEL_PATH}/backtest_results.png")
     plt.close()
 
 # ================================
 # SAVE DETAILED TRADE LOG
 # ================================
 
-print(f"\n💾 Saving detailed trade log...")
+print(f"\nSaving detailed trade log...")
 
 if len(trades) > 0:
     trades_df.to_csv(MODEL_PATH + '/backtest_trade_log.csv', index=False)
-    print(f"   ✓ Trade log: {MODEL_PATH}/backtest_trade_log.csv")
+    print(f"   Trade log: {MODEL_PATH}/backtest_trade_log.csv")
     print(f"     Columns: entry_idx, exit_idx, entry_price, exit_price, btc_traded, pnl_usd, pnl_pct, reason")
 
-print(f"\n✓ Backtesting complete!")
+print(f"\nBacktesting complete!")
