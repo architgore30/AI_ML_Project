@@ -835,3 +835,7 @@ The model produced by this still refuses to fire buy signals correctly. sell sig
 This has resulted in massive losses. Need to tune these values further and listen to sell decisions more.
 
 Changed labelling stratergy to predict reversals rather than moemntum or trend.
+Now we have very little trigger data points and aggressive class weights push the model to learn when to not trigger much better than when to trigger. So the model becomes very good at knowing when to not buy and when to not sell but gives absolutely garbage unusable buy and sell signals.
+Class weights have been agressively toned down.
+
+I have found a new conclusion. There is just not enough data to train the mdoel correctly fro givign good buy signals. I have decided to havily reduce take profit and stop loss to give the model a fair chance to learn. I can then raise the standards in post process (eg: require trigger of 0.65 rather than 0.5) to tune against overtrading instead of building that into the dataset and losing valuble data points.

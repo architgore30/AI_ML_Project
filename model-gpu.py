@@ -16,15 +16,15 @@ DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # XGBoost hyperparameters
-n_estimators = 396
-max_depth = 2
-learning_rate = 0.0035827
-subsample = 0.6848
-min_child_weight = 15
-colsample_bytree = 0.5757
-gamma = 0.2493
-reg_alpha = 1.6145
-reg_lambda = 1.6985
+n_estimators = 399
+max_depth = 10
+learning_rate = 0.007097
+subsample = 0.7826
+min_child_weight = 3
+colsample_bytree = 0.7046
+gamma = 5.1606
+reg_alpha = 3.2830
+reg_lambda = 3.2460
 
 # ================================
 # HARDWARE DETECTION
@@ -107,23 +107,20 @@ sell_ratio_train = y_train[:, 1].sum() / len(y_train)
 print(f"BUY ratio: {buy_ratio_train:.4f}")
 print(f"SELL ratio: {sell_ratio_train:.4f}")
 
-# Compute class weights (to handle imbalance)
-# Keep strong imbalance handling per label, without diluting to a shared normalized value.
-buy_weight_raw = 1 / buy_ratio_train if buy_ratio_train > 0 else 1
-sell_weight_raw = 1 / sell_ratio_train if sell_ratio_train > 0 else 1
+# scale_pos_weight: sqrt of negative/positive ratio — softened imbalance handling
+# Full inverse frequency (raw ratio) is too aggressive for rare labels and kills precision.
+# Square root dampens the upweighting, preserving some recall without sacrificing precision.
+buy_neg = (y_train[:, 0] == 0).sum()
+buy_pos = (y_train[:, 0] == 1).sum()
+sell_neg = (y_train[:, 1] == 0).sum()
+sell_pos = (y_train[:, 1] == 1).sum()
 
-print(f"\nClass weights (raw inverse frequency):")
-print(f"BUY positive weight approx: {buy_weight_raw:.2f}")
-print(f"SELL positive weight approx: {sell_weight_raw:.2f}")
+buy_scale_pos_weight = np.sqrt(buy_neg / buy_pos) if buy_pos > 0 else 1.0
+sell_scale_pos_weight = np.sqrt(sell_neg / sell_pos) if sell_pos > 0 else 1.0
 
-# Optional saturation factor to upweight rare positives even more
-WEIGHT_FACTOR = 1.0  # can tune (1.0, 2.0, 5.0)
-buy_weight = buy_weight_raw * WEIGHT_FACTOR
-sell_weight = sell_weight_raw * WEIGHT_FACTOR
-
-print(f"\nEffective class weight factors (for sample_weight in training):")
-print(f"BUY class positive weight: {buy_weight:.2f}")
-print(f"SELL class positive weight: {sell_weight:.2f}")
+print(f"\nscale_pos_weight (sqrt dampened):")
+print(f"BUY:  neg={buy_neg:,}  pos={buy_pos:,}  raw_ratio={buy_neg/buy_pos:.1f}  scale_pos_weight={buy_scale_pos_weight:.2f}")
+print(f"SELL: neg={sell_neg:,}  pos={sell_pos:,}  raw_ratio={sell_neg/sell_pos:.1f}  scale_pos_weight={sell_scale_pos_weight:.2f}")
 
 # ================================
 # TRAIN XGBOOST (MULTI-OUTPUT) - GPU ACCELERATED
@@ -138,12 +135,8 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     
     y_train_label = y_train[:, idx]
     
-    # Class weight for this label
-    class_weight = buy_weight if label_name == 'buy' else sell_weight
-    sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
-    
-    # Create DMatrix for training
-    dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
+    # Create DMatrix for training (no manual sample weights — handled via scale_pos_weight)
+    dtrain = xgb.DMatrix(X_train, label=y_train_label, feature_names=feature_cols)
     
     # XGBoost parameters
     params = {
@@ -156,6 +149,7 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
         'gamma': gamma,
         'reg_alpha': reg_alpha,
         'reg_lambda': reg_lambda,
+        'scale_pos_weight': buy_scale_pos_weight if label_name == 'buy' else sell_scale_pos_weight,
         'tree_method': TREE_METHOD,
         'device': DEVICE,
         'nthread': N_THREADS,

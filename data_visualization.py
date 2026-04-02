@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 DATA_PATH = "dataset.csv"
 OUTPUT_DIR = "visualizations"
-MAX_HORIZON = 120  # Minutes to look ahead for price movement (tunable for testing 20m, 30m, 60m, etc.)
+MAX_HORIZON = 30  # Minutes to look ahead for price movement (tunable for testing 20m, 30m, 60m, etc.)
 
 # ================================
 # LOAD DATA

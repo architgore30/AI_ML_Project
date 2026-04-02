@@ -5,13 +5,15 @@ Purpose:
     Generate ground-truth trading signals using triple-barrier labeling:
     - BUY signal: Price rises +TP% within MAX_HORIZON window (confidence in uptrend)
     - SELL signal: Price drops -SL% within MAX_HORIZON window (early risk warning)
+                   OR price stays below entry for 70%+ of horizon (sustained downtrend)
     - IDK signal: Neither threshold hit (market too choppy to trade)
 
 Philosophy:
     Risk-first labeling with asymmetric thresholds (TP > SL magnitude).
     This creates intentional class imbalance:
     - Harder to trigger BUY (requires strong conviction) → fewer, higher-quality signals
-    - Easier to trigger SELL (detects weakness early) → more signals for risk management
+    - Easier to trigger SELL (detects weakness early AND sustained downtrends)
+      → more signals for risk management and position exit
 
 Output:
     labeled_data.csv with three mutually-exclusive binary columns:
@@ -29,17 +31,18 @@ from tqdm import tqdm
 DATA_PATH = "dataset.csv"
 OUTPUT_PATH = "labeled_data.csv"
 
-# ===== Triple-Barrier Thresholds (Tuned v3 - Empirical TP/SL Analysis) =====
+# ===== Triple-Barrier Thresholds =====
 # Asymmetric by design - controls signal sensitivity:
 # - TP: Harder threshold for BUY (requires conviction)
 # - SL: Easier threshold for SELL (protects against downside)
-# Chosen after empirical analysis across MAX_HORIZON values:
-# - Relative std dev stabilizes after 5m period (141-150% range)
-# - 30m horizon: optimal balance between trend detection and signal clarity
-# - 0.003 TP / 0.002 SL: quant research standard, empirically validated
-TP = 0.003       # +0.3% upward move → BUY signal (quant standard)
-SL = 0.002       # -0.2% downward move → SELL signal (conservative, early warning)
-MAX_HORIZON = 30 # minutes to detect threshold hit (optimized for signal/noise ratio)
+# Empirically chosen based on 30-min window price movement statistics:
+# - Median high: +0.1809%, Median low: -0.1844%
+# - TP at 0.18% sits at ~50th percentile of upward moves
+# - SL at 0.15% sits slightly below median downward move magnitude
+TP = 0.0018        # 0.18% upward move → BUY signal
+SL = 0.0015        # 0.15% downward move → SELL signal (reversal)
+MAX_HORIZON = 30   # minutes to detect threshold hit
+DOWNTREND_THRESHOLD = 0.70  # fraction of horizon bars that must be below entry for sustained downtrend sell
 
 # ================================
 # LOAD DATA
@@ -78,18 +81,22 @@ idk_labels = np.zeros(n, dtype=np.int8)
 # ================================
 # For each timestamp i, look ahead up to MAX_HORIZON minutes:
 # - If price hits upper_threshold first → buy_label = 1 (strong uptrend detected)
-# - Else if price hits lower_threshold first → sell_label = 1 (downside risk detected)
+# - Else if price hits lower_threshold first → sell_label = 1 (sharp reversal detected)
+# - Else if price stays below entry for 70%+ of horizon → sell_label = 1 (sustained downtrend)
 # - Else neither threshold → idk_label = 1 (market too noisy, no clear signal)
 
 i = 0
 pbar = tqdm(total=n - MAX_HORIZON, desc="Generating labels")
+
+sell_reversal_count = 0
+sell_downtrend_count = 0
 
 while i < n - MAX_HORIZON:
     current_price = close[i]
 
     # Define threshold prices for this bar
     upper_threshold = current_price * (1 + TP)      # +TP% upward → BUY signal
-    lower_threshold = current_price * (1 - SL)      # -SL% downward → SELL signal
+    lower_threshold = current_price * (1 - SL)      # -SL% downward → SELL signal (reversal)
 
     # Look ahead within the MAX_HORIZON window
     future_prices = close[i+1:i+1+MAX_HORIZON]
@@ -103,14 +110,24 @@ while i < n - MAX_HORIZON:
             hit_at = j + 1
             break
         elif price <= lower_threshold:
-            label = 'sell'
+            label = 'sell_reversal'
             hit_at = j + 1
             break
 
+    # If no barrier was hit, check for sustained downtrend
+    if label == 'idk':
+        bars_below_entry = (future_prices < current_price).sum()
+        if bars_below_entry >= MAX_HORIZON * DOWNTREND_THRESHOLD:
+            label = 'sell_downtrend'
+
     if label == 'buy':
         buy_labels[i] = 1
-    elif label == 'sell':
+    elif label == 'sell_reversal':
         sell_labels[i] = 1
+        sell_reversal_count += 1
+    elif label == 'sell_downtrend':
+        sell_labels[i] = 1
+        sell_downtrend_count += 1
     else:
         idk_labels[i] = 1
 
@@ -147,6 +164,8 @@ idk_ratio = idk_count / total
 print(f"\n===== LABEL DISTRIBUTION =====")
 print(f"  BUY signals:     {buy_count:,} ({buy_ratio:.2%})")
 print(f"  SELL signals:    {sell_count:,} ({sell_ratio:.2%})")
+print(f"    of which reversal:  {sell_reversal_count:,} ({sell_reversal_count/total:.2%})")
+print(f"    of which downtrend: {sell_downtrend_count:,} ({sell_downtrend_count/total:.2%})")
 print(f"  IDK (uncertain): {idk_count:,} ({idk_ratio:.2%})")
 print(f"  ---")
 print(f"  Total bars:      {total:,}")
@@ -171,5 +190,5 @@ else:
 
 df.to_csv(OUTPUT_PATH, index=False)
 print(f"\nLabeled dataset saved to: {OUTPUT_PATH}")
-print(f"   Columns: buy_label, sell_label, idk_label (+ 35 feature columns)")
+print(f"   Columns: buy_label, sell_label, idk_label (+ original feature columns)")
 print(f"   Rows: {len(df):,} samples (post-2018 regime)")

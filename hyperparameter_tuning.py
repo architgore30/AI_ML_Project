@@ -33,10 +33,10 @@ is_weak_hardware = cpu_count is not None and cpu_count <= 4
 print(f"Detected {cpu_count} physical CPU cores")
 if is_weak_hardware:
     print("✓ Weak hardware detected (<=4 cores) - using Bayesian optimization")
-    N_JOBS = min(2, cpu_count - 1) if cpu_count > 1 else 1
+    N_JOBS = 3
 else:
     print("✓ Standard/strong hardware - using full optimization")
-    N_JOBS = min(3, cpu_count - 1) if cpu_count > 1 else 1
+    N_JOBS = 3
 
 print(f"Will use {N_JOBS} parallel workers for trials")
 
@@ -71,10 +71,9 @@ except Exception as e:
 
 DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8
-WEIGHT_FACTOR = 1.0
 SAMPLE_SIZE = 200_000
-PHASE_1_TRIALS = 40
-PHASE_2_TRIALS = 20
+PHASE_1_TRIALS = 60
+PHASE_2_TRIALS = 25
 
 print(f"\nUsing Bayesian optimization with pruning:")
 print(f"  Phase 1: {PHASE_1_TRIALS} trials (exploration)")
@@ -112,13 +111,18 @@ print(f"Device: {DEVICE.upper()}, Tree method: {TREE_METHOD}")
 # CLASS WEIGHTS
 # ================================
 
-buy_ratio_train = y_train[:, 0].sum() / len(y_train)
-sell_ratio_train = y_train[:, 1].sum() / len(y_train)
+# scale_pos_weight: sqrt of negative/positive ratio — softened imbalance handling
+# Full inverse frequency is too aggressive for rare labels and kills precision.
+# Square root dampens the upweighting, preserving some recall without sacrificing precision.
+buy_neg = (y_train[:, 0] == 0).sum()
+buy_pos = (y_train[:, 0] == 1).sum()
+sell_neg = (y_train[:, 1] == 0).sum()
+sell_pos = (y_train[:, 1] == 1).sum()
 
-buy_weight = (1 / buy_ratio_train) * WEIGHT_FACTOR if buy_ratio_train > 0 else 1
-sell_weight = (1 / sell_ratio_train) * WEIGHT_FACTOR if sell_ratio_train > 0 else 1
+buy_scale_pos_weight = np.sqrt(buy_neg / buy_pos) if buy_pos > 0 else 1.0
+sell_scale_pos_weight = np.sqrt(sell_neg / sell_pos) if sell_pos > 0 else 1.0
 
-print(f"Class weights: BUY={buy_weight:.2f}, SELL={sell_weight:.2f}")
+print(f"scale_pos_weight (sqrt dampened): BUY={buy_scale_pos_weight:.2f}, SELL={sell_scale_pos_weight:.2f}")
 
 # ================================
 # OBJECTIVE FUNCTION FOR OPTUNA
@@ -132,14 +136,14 @@ def objective(trial):
     global current_device, current_tree_method
     
     params = {
-        'n_estimators': trial.suggest_int('n_estimators', 50, 400),
-        'max_depth': trial.suggest_int('max_depth', 1, 7),
-        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.2, log=True),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 600),
+        'max_depth': trial.suggest_int('max_depth', 1, 12),
+        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.1, log=True),
         'subsample': trial.suggest_float('subsample', 0.2, 1.0),
         'min_child_weight': trial.suggest_int('min_child_weight', 1, 20),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.3, 1.0),
-        'gamma': trial.suggest_float('gamma', 0, 5.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 2.0),
+        'gamma': trial.suggest_float('gamma', 0, 20.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 5.0),
         'reg_lambda': trial.suggest_float('reg_lambda', 0.1, 10.0, log=True)
     }
     
@@ -148,10 +152,7 @@ def objective(trial):
         
         for label_idx, label_name in enumerate(['buy', 'sell']):
             y_train_label = y_train[:, label_idx]
-            class_weight = buy_weight if label_name == 'buy' else sell_weight
-            sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
-            
-            dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
+            dtrain = xgb.DMatrix(X_train, label=y_train_label, feature_names=feature_cols)
             
             xgb_params = {
                 'max_depth': params['max_depth'],
@@ -162,9 +163,11 @@ def objective(trial):
                 'gamma': params['gamma'],
                 'reg_alpha': params['reg_alpha'],
                 'reg_lambda': params['reg_lambda'],
+                'scale_pos_weight': buy_scale_pos_weight if label_name == 'buy' else sell_scale_pos_weight,
                 'objective': 'binary:logistic',
                 'tree_method': current_tree_method,
-                'device': current_device
+                'device': current_device,
+                'nthread': 1
             }
             
             try:
@@ -259,10 +262,10 @@ def refined_objective(trial):
     params = {
         'n_estimators': trial.suggest_int('n_estimators',
             max(50, int(best_p1['n_estimators'] * 0.8)),
-            min(400, int(best_p1['n_estimators'] * 1.2))),
+            min(600, int(best_p1['n_estimators'] * 1.2))),
         'max_depth': trial.suggest_int('max_depth',
             max(1, best_p1['max_depth'] - 1),
-            min(7, best_p1['max_depth'] + 1)),
+            min(12, best_p1['max_depth'] + 1)),
         'learning_rate': trial.suggest_float('learning_rate',
             best_p1['learning_rate'] * 0.5,
             best_p1['learning_rate'] * 2.0, log=True),
@@ -276,11 +279,11 @@ def refined_objective(trial):
             max(0.3, best_p1['colsample_bytree'] - 0.15),
             min(1.0, best_p1['colsample_bytree'] + 0.15)),
         'gamma': trial.suggest_float('gamma',
-            max(0.0, best_p1['gamma'] - 1.0),
-            min(5.0, best_p1['gamma'] + 1.0)),
+            max(0.0, best_p1['gamma'] - 2.0),
+            min(20.0, best_p1['gamma'] + 2.0)),
         'reg_alpha': trial.suggest_float('reg_alpha',
             max(0.0, best_p1['reg_alpha'] - 0.5),
-            min(2.0, best_p1['reg_alpha'] + 0.5)),
+            min(5.0, best_p1['reg_alpha'] + 0.5)),
         'reg_lambda': trial.suggest_float('reg_lambda',
             max(0.1, best_p1['reg_lambda'] * 0.5),
             min(10.0, best_p1['reg_lambda'] * 2.0), log=True)
@@ -291,10 +294,7 @@ def refined_objective(trial):
 
         for label_idx, label_name in enumerate(['buy', 'sell']):
             y_train_label = y_train[:, label_idx]
-            class_weight = buy_weight if label_name == 'buy' else sell_weight
-            sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
-
-            dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
+            dtrain = xgb.DMatrix(X_train, label=y_train_label, feature_names=feature_cols)
 
             xgb_params = {
                 'max_depth': params['max_depth'],
@@ -305,9 +305,11 @@ def refined_objective(trial):
                 'gamma': params['gamma'],
                 'reg_alpha': params['reg_alpha'],
                 'reg_lambda': params['reg_lambda'],
+                'scale_pos_weight': buy_scale_pos_weight if label_name == 'buy' else sell_scale_pos_weight,
                 'objective': 'binary:logistic',
                 'tree_method': current_tree_method,
-                'device': current_device
+                'device': current_device,
+                'nthread': 1
             }
 
             try:
