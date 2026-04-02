@@ -833,3 +833,5 @@ Avg ROC-AUC: 0.6244
 The model produced by this still refuses to fire buy signals correctly. sell signals are also often high while buy signals are low. It seems 50% is nmot the correct threshold. to work around the model's weakness, weak buy signals will be counted as buy and only strogn sell signals will be counted as sell. we will prioritize the buy model's decision.
 
 This has resulted in massive losses. Need to tune these values further and listen to sell decisions more.
+
+Changed labelling stratergy to predict reversals rather than moemntum or trend.

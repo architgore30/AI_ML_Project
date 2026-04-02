@@ -81,29 +81,44 @@ idk_labels = np.zeros(n, dtype=np.int8)
 # - Else if price hits lower_threshold first → sell_label = 1 (downside risk detected)
 # - Else neither threshold → idk_label = 1 (market too noisy, no clear signal)
 
-for i in tqdm(range(n - MAX_HORIZON), desc="Generating labels"):
+i = 0
+pbar = tqdm(total=n - MAX_HORIZON, desc="Generating labels")
+
+while i < n - MAX_HORIZON:
     current_price = close[i]
 
     # Define threshold prices for this bar
-    upper_threshold = current_price * (1 + TP)      # +0.8% upward → BUY signal
-    lower_threshold = current_price * (1 - SL)      # -0.5% downward → SELL signal
+    upper_threshold = current_price * (1 + TP)      # +TP% upward → BUY signal
+    lower_threshold = current_price * (1 - SL)      # -SL% downward → SELL signal
 
     # Look ahead within the MAX_HORIZON window
     future_prices = close[i+1:i+1+MAX_HORIZON]
 
-    trade_selected = False
-    for price in future_prices:
+    label = 'idk'
+    hit_at = MAX_HORIZON  # default: advance by full horizon if no barrier hit
+
+    for j, price in enumerate(future_prices):
         if price >= upper_threshold:
-            buy_labels[i] = 1
-            trade_selected = True
+            label = 'buy'
+            hit_at = j + 1
+            break
+        elif price <= lower_threshold:
+            label = 'sell'
+            hit_at = j + 1
             break
 
-        elif price <= lower_threshold:
-            sell_labels[i] = 1
-            trade_selected = True
-            break
-    if not trade_selected:
+    if label == 'buy':
+        buy_labels[i] = 1
+    elif label == 'sell':
+        sell_labels[i] = 1
+    else:
         idk_labels[i] = 1
+
+    # Advance past the event window so overlapping mid-move bars are not re-labelled
+    pbar.update(hit_at)
+    i += hit_at
+
+pbar.close()
 
 # ================================
 # ATTACH LABELS TO DATAFRAME
