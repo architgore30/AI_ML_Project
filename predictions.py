@@ -9,19 +9,21 @@ import numpy as np
 import joblib
 import xgboost as xgb
 import sys
+import matplotlib.pyplot as plt
 
 # ================================
 # CONFIGURATION
 # ================================
 
 # Specify which model folder to use (models, models-2, models-3, or models-4)
-MODELS_PATH = "models-4"  # Change this to models-2 or models-3 for other tiers
+MODELS_PATH = "models"  # Change this to models-2 or models-3 for other tiers
 
 DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # Decision thresholds (0.5 = equal confidence in both signals to avoid trading)
-THRESHOLD = 0.5
+THRESHOLD_BUY = 0.49
+THRESHOLD_SELL = 0.54
 
 # ================================
 # LOAD DATA
@@ -106,12 +108,50 @@ predictions_df['sell_prob'] = sell_proba
 # Decision logic with uncertainty filtering
 # Threshold=0.5 means: only trade if ONE signal > 0.5 AND the other < 0.5
 predictions_df['decision'] = 'NO_TRADE'
-predictions_df.loc[(buy_proba > THRESHOLD) & (sell_proba < THRESHOLD), 'decision'] = 'BUY'
-predictions_df.loc[(sell_proba > THRESHOLD) & (buy_proba < THRESHOLD), 'decision'] = 'SELL'
+predictions_df.loc[(buy_proba > THRESHOLD_BUY) & (sell_proba < THRESHOLD_SELL), 'decision'] = 'BUY'
+predictions_df.loc[(sell_proba > THRESHOLD_SELL) & (buy_proba < THRESHOLD_BUY), 'decision'] = 'SELL'
 
 print(f"\n===== DECISION DISTRIBUTION =====")
 print(predictions_df['decision'].value_counts())
-print(f"\nDecision threshold: >{THRESHOLD:.2f} for buy/sell, <{THRESHOLD:.2f} for the other signal")
+print(f"\nDecision threshold: >{THRESHOLD_BUY:.2f} for buy, <{THRESHOLD_SELL:.2f} for sell")
+
+
+# ================================
+# BOXPLOT: RAW SIGNAL PROBABILITY DISTRIBUTIONS
+# ================================
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+ax.boxplot(
+    [buy_proba, sell_proba],
+    labels=['BUY Model', 'SELL Model'],
+    patch_artist=True,
+    boxprops=dict(facecolor='lightblue'),
+    medianprops=dict(color='black', linewidth=2)
+)
+ax.set_title('Raw Signal Probability Distributions')
+ax.set_ylabel('Probability')
+ax.axhline(y=THRESHOLD_BUY, color='green', linestyle='--', alpha=0.7, label=f'BUY threshold ({THRESHOLD_BUY})')
+ax.axhline(y=THRESHOLD_SELL, color='red', linestyle='--', alpha=0.7, label=f'SELL threshold ({THRESHOLD_SELL})')
+ax.legend()
+
+plt.tight_layout()
+boxplot_path = f"{MODELS_PATH}/signal_probabilities_boxplot.png"
+plt.savefig(boxplot_path, dpi=150, bbox_inches='tight')
+print(f"\n✓ Boxplot saved to: {boxplot_path}")
+plt.show()
+
+print(f"\n===== RAW PROBABILITY STATISTICS =====")
+for name, proba in [('BUY', buy_proba), ('SELL', sell_proba)]:
+    q1, median, q3 = np.percentile(proba, [25, 50, 75])
+    print(f"\n  {name} Model:")
+    print(f"    Min:    {proba.min():.4f}")
+    print(f"    Q1:     {q1:.4f}")
+    print(f"    Median: {median:.4f}")
+    print(f"    Mean:   {proba.mean():.4f}")
+    print(f"    Q3:     {q3:.4f}")
+    print(f"    Max:    {proba.max():.4f}")
+    print(f"    Std:    {proba.std():.4f}")
 
 # ================================
 # SAVE PREDICTIONS

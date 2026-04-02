@@ -36,15 +36,15 @@ from matplotlib.ticker import FuncFormatter
 # ================================
 # CONFIGURATION
 # ================================
-MODEL_PATH = "models-4"
+MODEL_PATH = "models"
 PREDICTIONS_PATH = MODEL_PATH + "/predictions_test.csv"
 FEATURES_PATH = "features.csv"
 
 # Trading parameters
-ENTRY_TIMEOUT = 60  # minutes to hold trade if signal doesn't reverse
+ENTRY_TIMEOUT = 30  # minutes to hold trade if signal doesn't reverse
 SLIPPAGE = 0.0001   # 0.01% per trade (bid-ask spread assumption)
-COMMISSION = 0.001  # 0.1% per trade
-INITIAL_BALANCE = 100000.0  # Starting USD balance (all deployed to BTC)
+COMMISSION = 0.0002  # 0.02% per trade
+INITIAL_BALANCE = 100_000.0  # Starting USD balance (all deployed to BTC)
 
 # ================================
 # LOAD DATA
@@ -228,6 +228,16 @@ else:
         sharpe = (mean_return / returns_std * np.sqrt(252*24*60)) if returns_std > 0 else 0  # Annualized approximation
         print(f"Sharpe ratio (approximate): {sharpe:.2f}")
 
+    # CAGR calculation using actual timestamp range
+    start_ts = timestamps[trades_df['entry_idx'].iloc[0]]
+    end_ts = timestamps[trades_df['exit_idx'].iloc[-1]]
+    years = (end_ts - start_ts) / (365.25 * 24 * 3600)
+    if years > 0 and final_portfolio_value > 0:
+        cagr = ((final_portfolio_value / INITIAL_BALANCE) ** (1 / years) - 1) * 100
+        print(f"   CAGR:                 {cagr:+.2f}% per year (over {years:.2f} years)")
+    else:
+        print(f"   CAGR:                 N/A (insufficient time range)")
+
 # ================================
 # VISUALIZATION & REPORTING
 # ================================
@@ -288,6 +298,7 @@ if len(trades) > 0:
     plt.tight_layout()
     plt.savefig(f'{MODEL_PATH}/backtest_results.png', dpi=150, bbox_inches='tight')
     print(f"   Chart saved: {MODEL_PATH}/backtest_results.png")
+    plt.show()
     plt.close()
 
 # ================================

@@ -5,6 +5,7 @@ from sklearn.metrics import classification_report, roc_auc_score
 import matplotlib.pyplot as plt
 import joblib
 import os
+import psutil
 from tqdm import tqdm
 
 # ================================
@@ -15,10 +16,40 @@ DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # XGBoost hyperparameters
-n_estimators = 50
+n_estimators = 396
 max_depth = 2
-learning_rate = 0.01
-subsample = 0.8
+learning_rate = 0.0035827
+subsample = 0.6848
+min_child_weight = 15
+colsample_bytree = 0.5757
+gamma = 0.2493
+reg_alpha = 1.6145
+reg_lambda = 1.6985
+
+# ================================
+# HARDWARE DETECTION
+# ================================
+
+cpu_count = psutil.cpu_count(logical=False)
+N_THREADS = max(1, cpu_count - 1) if cpu_count else 1
+print(f"Detected {cpu_count} physical CPU cores — using {N_THREADS} threads")
+
+DEVICE = 'cpu'
+TREE_METHOD = 'hist'
+
+try:
+    test_matrix = xgb.DMatrix(np.random.rand(100, 5), label=np.random.rand(100))
+    xgb.train(
+        {'tree_method': 'gpu_hist', 'device': 'cuda', 'objective': 'reg:squarederror'},
+        test_matrix,
+        num_boost_round=1,
+        verbose_eval=False
+    )
+    DEVICE = 'cuda'
+    TREE_METHOD = 'gpu_hist'
+    print("✓ GPU detected - using CUDA acceleration")
+except Exception:
+    print("GPU not available - using CPU (tree_method=hist)")
 
 # ================================
 # LOAD DATA
@@ -86,7 +117,7 @@ print(f"BUY positive weight approx: {buy_weight_raw:.2f}")
 print(f"SELL positive weight approx: {sell_weight_raw:.2f}")
 
 # Optional saturation factor to upweight rare positives even more
-WEIGHT_FACTOR = 3.0  # can tune (1.0, 2.0, 5.0)
+WEIGHT_FACTOR = 1.0  # can tune (1.0, 2.0, 5.0)
 buy_weight = buy_weight_raw * WEIGHT_FACTOR
 sell_weight = sell_weight_raw * WEIGHT_FACTOR
 
@@ -98,7 +129,7 @@ print(f"SELL class positive weight: {sell_weight:.2f}")
 # TRAIN XGBOOST (MULTI-OUTPUT) - GPU ACCELERATED
 # ================================
 
-print("\n===== TRAINING XGBOOST ON GPU =====")
+print(f"\n===== TRAINING XGBOOST ON {DEVICE.upper()} =====")
 
 # One model per output (BUY and SELL)
 models = {}
@@ -111,7 +142,7 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     class_weight = buy_weight if label_name == 'buy' else sell_weight
     sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
     
-    # Create DMatrix for GPU training
+    # Create DMatrix for training
     dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
     
     # XGBoost parameters
@@ -120,28 +151,32 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
         'max_depth': max_depth,
         'learning_rate': learning_rate,
         'subsample': subsample,
-        'tree_method': 'hist',
-        'device': 'cuda',
+        'min_child_weight': min_child_weight,
+        'colsample_bytree': colsample_bytree,
+        'gamma': gamma,
+        'reg_alpha': reg_alpha,
+        'reg_lambda': reg_lambda,
+        'tree_method': TREE_METHOD,
+        'device': DEVICE,
+        'nthread': N_THREADS,
     }
     
     # Custom progress callback
-    def progress_callback(env):
-        pbar.update(1)
-    
     pbar = tqdm(total=n_estimators, desc=f"  {label_name.upper()} trees", leave=False)
-    
-    # Train on GPU with progress tracking
+
+    class TqdmCallback(xgb.callback.TrainingCallback):
+        def after_iteration(self, model, epoch, evals_log):
+            pbar.update(1)
+            return False
+
     booster = xgb.train(
         params,
         dtrain,
         num_boost_round=n_estimators,
-        callbacks=[xgb.callback.EvaluationMonitor(show_stdv=False)],
+        callbacks=[TqdmCallback()],
         verbose_eval=False
     )
-    
-    # Update progress bar to completion
-    pbar.n = n_estimators
-    pbar.refresh()
+
     pbar.close()
     
     models[label_name] = booster

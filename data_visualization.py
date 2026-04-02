@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 DATA_PATH = "dataset.csv"
 OUTPUT_DIR = "visualizations"
+MAX_HORIZON = 120  # Minutes to look ahead for price movement (tunable for testing 20m, 30m, 60m, etc.)
 
 # ================================
 # LOAD DATA
@@ -205,5 +206,154 @@ print(f"  Samples: {int(post_2018_vol['count'])}")
 
 ratio = post_2018_vol['mean'] / pre_2018_vol['mean']
 print(f"\nRecent volume is {ratio:.1f}x older volume")
+
+# ================================
+# PRICE MOVEMENT ANALYSIS (TP/SL TUNING)
+# ================================
+
+print(f"\n===== PRICE MOVEMENT ANALYSIS (MAX_HORIZON={MAX_HORIZON} minutes) =====")
+print("Calculating highest/lowest prices in each rolling window...")
+
+# Filter to post-2018 data only
+df['DateTime'] = pd.to_datetime(df['Timestamp'], unit='s')
+df_analysis = df[df['DateTime'] >= '2018-01-01']
+print(f"   Regime filter (post-2018): {len(df_analysis)} samples remain")
+
+close = df_analysis['Close'].values
+high = df_analysis['High'].values
+low = df_analysis['Low'].values
+n = len(df_analysis)
+
+# Calculate price multiples for each window
+highest_multiples = []
+lowest_multiples = []
+
+for i in tqdm(range(n - MAX_HORIZON), desc="Calculating price movements"):
+    start_price = close[i]
+    
+    window_high = np.max(high[i:i+MAX_HORIZON])
+    window_low = np.min(low[i:i+MAX_HORIZON])
+    
+    highest_multiple = window_high / start_price
+    lowest_multiple = window_low / start_price
+    
+    highest_multiples.append(highest_multiple)
+    lowest_multiples.append(lowest_multiple)
+
+highest_multiples = np.array(highest_multiples)
+lowest_multiples = np.array(lowest_multiples)
+
+# Convert to percentage changes
+highest_pct = (highest_multiples - 1) * 100
+lowest_pct = (lowest_multiples - 1) * 100
+
+mean = highest_pct.mean()
+print(f"\nHighest price in {MAX_HORIZON}-minute window:")
+print(f"  Mean: {mean:.4f}% (multiple: {highest_multiples.mean():.6f}x)")
+print(f"  Median: {np.median(highest_pct):.4f}%")
+print(f"  Std: {highest_pct.std():.4f}%")
+print(f"  Rel_Std: {100*highest_pct.std()/mean:.4f}%")
+print(f"  Min: {highest_pct.min():.4f}%")
+print(f"  Max: {highest_pct.max():.4f}%")
+print(f"  Percentiles: 25th={np.percentile(highest_pct, 25):.4f}%, 75th={np.percentile(highest_pct, 75):.4f}%")
+
+lowest_pct.mean()
+print(f"\nLowest price in {MAX_HORIZON}-minute window:")
+print(f"  Mean: {mean:.4f}% (multiple: {lowest_multiples.mean():.6f}x)")
+print(f"  Median: {np.median(lowest_pct):.4f}%")
+print(f"  Std: {lowest_pct.std():.4f}%")
+print(f"  Rel_Std: {100*lowest_pct.std()/mean:.4f}%")
+print(f"  Min: {lowest_pct.min():.4f}%")
+print(f"  Max: {lowest_pct.max():.4f}%")
+print(f"  Percentiles: 25th={np.percentile(lowest_pct, 25):.4f}%, 75th={np.percentile(lowest_pct, 75):.4f}%")
+
+# Create box plot for TP/SL tuning
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Box plot 1: Highest prices (positive moves, relevant for TP)
+ax1 = axes[0]
+bp1 = ax1.boxplot([highest_pct], vert=True, patch_artist=True, widths=0.6,
+                   boxprops=dict(facecolor='lightgreen', alpha=0.7),
+                   medianprops=dict(color='darkgreen', linewidth=2),
+                   whiskerprops=dict(color='black', linewidth=1.5),
+                   capprops=dict(color='black', linewidth=1.5))
+ax1.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, label='Starting price')
+ax1.set_title(f'Highest Price in {MAX_HORIZON}-Minute Window\n(For Take Profit Tuning)', 
+              fontsize=12, fontweight='bold')
+ax1.set_ylabel('Price Change (%)')
+ax1.set_xticklabels(['Upside'])
+ax1.grid(True, alpha=0.3, axis='y')
+ax1.legend()
+
+stats_text_up = (f"Mean: {highest_pct.mean():.4f}%\n"
+                 f"Median: {np.median(highest_pct):.4f}%\n"
+                 f"Q1: {np.percentile(highest_pct, 25):.4f}%\n"
+                 f"Q3: {np.percentile(highest_pct, 75):.4f}%\n"
+                 f"Std: {highest_pct.std():.4f}%")
+ax1.text(1.35, highest_pct.max() * 0.8, stats_text_up, fontsize=9, 
+         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+# Box plot 2: Lowest prices (negative moves, relevant for SL)
+ax2 = axes[1]
+bp2 = ax2.boxplot([lowest_pct], vert=True, patch_artist=True, widths=0.6,
+                   boxprops=dict(facecolor='lightcoral', alpha=0.7),
+                   medianprops=dict(color='darkred', linewidth=2),
+                   whiskerprops=dict(color='black', linewidth=1.5),
+                   capprops=dict(color='black', linewidth=1.5))
+ax2.axhline(y=0, color='blue', linestyle='--', linewidth=1, alpha=0.5, label='Starting price')
+ax2.set_title(f'Lowest Price in {MAX_HORIZON}-Minute Window\n(For Stop Loss Tuning)', 
+              fontsize=12, fontweight='bold')
+ax2.set_ylabel('Price Change (%)')
+ax2.set_xticklabels(['Downside'])
+ax2.grid(True, alpha=0.3, axis='y')
+ax2.legend()
+
+stats_text_down = (f"Mean: {lowest_pct.mean():.4f}%\n"
+                   f"Median: {np.median(lowest_pct):.4f}%\n"
+                   f"Q1: {np.percentile(lowest_pct, 25):.4f}%\n"
+                   f"Q3: {np.percentile(lowest_pct, 75):.4f}%\n"
+                   f"Std: {lowest_pct.std():.4f}%")
+ax2.text(1.35, lowest_pct.max() * 0.8, stats_text_down, fontsize=9, 
+         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+plt.tight_layout()
+plt.savefig(f'{OUTPUT_DIR}/price_movement_tp_sl_tuning.png', dpi=150, bbox_inches='tight')
+print(f"\nSaved: {OUTPUT_DIR}/price_movement_tp_sl_tuning.png")
+plt.close()
+
+# Create combined box plot showing both sides
+fig, ax = plt.subplots(figsize=(12, 7))
+
+box_data = [highest_pct, lowest_pct]
+bp = ax.boxplot(box_data, labels=['Upside (TP Target)', 'Downside (SL Target)'], 
+                vert=True, patch_artist=True, widths=0.6,
+                boxprops=dict(linewidth=1.5),
+                medianprops=dict(linewidth=2.5),
+                whiskerprops=dict(linewidth=1.5),
+                capprops=dict(linewidth=1.5))
+
+colors = ['lightgreen', 'lightcoral']
+for patch, color in zip(bp['boxes'], colors):
+    patch.set_facecolor(color)
+    patch.set_alpha(0.7)
+
+ax.axhline(y=0, color='black', linestyle='-', linewidth=1.5, alpha=0.3)
+ax.set_ylabel('Price Change (%)', fontsize=11, fontweight='bold')
+ax.set_title(f'Bitcoin Price Movement Distribution\nHorizon: {MAX_HORIZON} minutes (Post-2018 Data)\nGuide for TP/SL Threshold Selection', 
+             fontsize=13, fontweight='bold')
+ax.grid(True, alpha=0.3, axis='y')
+
+ax.text(1, highest_pct.max() + (highest_pct.max() - highest_pct.min()) * 0.05,
+        f"MAX: {highest_pct.max():.4f}%\nQ3: {np.percentile(highest_pct, 75):.4f}%",
+        ha='center', fontsize=10, bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.7))
+
+ax.text(2, lowest_pct.min() - (lowest_pct.max() - lowest_pct.min()) * 0.08,
+        f"MIN: {lowest_pct.min():.4f}%\nQ1: {np.percentile(lowest_pct, 25):.4f}%",
+        ha='center', fontsize=10, bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.7))
+
+plt.tight_layout()
+plt.savefig(f'{OUTPUT_DIR}/combined_price_movement_boxplot.png', dpi=150, bbox_inches='tight')
+print(f"Saved: {OUTPUT_DIR}/combined_price_movement_boxplot.png")
+plt.close()
 
 print("\n✓ Data visualization complete!")

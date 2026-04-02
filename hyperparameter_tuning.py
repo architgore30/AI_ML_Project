@@ -1,7 +1,13 @@
 """
-Hyperparameter Tuning for XGBoost Models
-Purpose: Grid search over n_estimators, max_depth, learning_rate, subsample
-Evaluates each combination using backtesting (final P&L is the metric)
+Bayesian Hyperparameter Optimization for XGBoost Models
+Purpose: Use Optuna with TPE sampler, pruning, and parallel processing
+Smart algorithm for weak hardware (i5 CPU)
+
+Approach:
+- Phase 1: 20 trials exploration with pruning (early stopping for bad trials)
+- Phase 2: 10 trials refinement around best regions
+- Parallel processing: 2-3 workers on i5
+- Pruning stops bad trials at 50% training to save time
 """
 
 import pandas as pd
@@ -9,29 +15,55 @@ import numpy as np
 import xgboost as xgb
 import joblib
 import os
-import subprocess
-import sys
-from itertools import product
-from tqdm import tqdm
+import psutil
+import optuna
+from optuna.pruners import MedianPruner
+from optuna.samplers import TPESampler
+from sklearn.metrics import roc_auc_score
+
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 # ================================
-# GPU DETECTION
+# HARDWARE DETECTION & STRATEGY
 # ================================
+
+cpu_count = psutil.cpu_count(logical=False)
+is_weak_hardware = cpu_count is not None and cpu_count <= 4
+
+print(f"Detected {cpu_count} physical CPU cores")
+if is_weak_hardware:
+    print("✓ Weak hardware detected (<=4 cores) - using Bayesian optimization")
+    N_JOBS = min(2, cpu_count - 1) if cpu_count > 1 else 1
+else:
+    print("✓ Standard/strong hardware - using full optimization")
+    N_JOBS = min(3, cpu_count - 1) if cpu_count > 1 else 1
+
+print(f"Will use {N_JOBS} parallel workers for trials")
+
+# ================================
+# GPU/CPU DETECTION & DEVICE STRATEGY
+# ================================
+
+GPU_AVAILABLE = False
+DEVICE = 'cpu'
+TREE_METHOD = 'hist'
 
 try:
-    # Test GPU availability
-    test_matrix = xgb.DMatrix(np.random.rand(10, 5), label=np.random.rand(10))
-    test_model = xgb.train(
-        {'tree_method': 'auto', 'device': 'cuda', 'objective': 'reg:squarederror'},
+    test_matrix = xgb.DMatrix(np.random.rand(100, 5), label=np.random.rand(100))
+    xgb.train(
+        {'tree_method': 'gpu_hist', 'device': 'cuda', 'objective': 'reg:squarederror'},
         test_matrix,
         num_boost_round=1,
         verbose_eval=False
     )
     GPU_AVAILABLE = True
-    print("GPU detected and available for XGBoost")
+    DEVICE = 'cuda'
+    TREE_METHOD = 'gpu_hist'
+    print("✓ GPU detected - using CUDA acceleration")
 except Exception as e:
-    GPU_AVAILABLE = False
-    print(f"GPU not available, falling back to CPU")
+    print(f"GPU not available - using CPU (tree_method=hist for efficiency)")
+    DEVICE = 'cpu'
+    TREE_METHOD = 'hist'
 
 # ================================
 # CONFIGURATION
@@ -39,22 +71,24 @@ except Exception as e:
 
 DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8
-WEIGHT_FACTOR = 1.0  # Start with base weighting
+WEIGHT_FACTOR = 1.0
+SAMPLE_SIZE = 200_000
+PHASE_1_TRIALS = 40
+PHASE_2_TRIALS = 20
 
-# Hyperparameter grid to search
-PARAM_GRID = {
-    'n_estimators': [50, 100, 200, 300, 350, 400],
-    'max_depth': [1, 2, 3, 5, 7],
-    'learning_rate': [0.01, 0.05, 0.1],
-    'subsample': [0.2, 0.4, 0.6, 0.8, 1.0]
-}
+print(f"\nUsing Bayesian optimization with pruning:")
+print(f"  Phase 1: {PHASE_1_TRIALS} trials (exploration)")
+print(f"  Phase 2: {PHASE_2_TRIALS} trials (refinement)")
+print(f"  Data: {SAMPLE_SIZE:,} samples")
+print(f"  Parallel workers: {N_JOBS}")
 
 # ================================
 # LOAD DATA ONCE
 # ================================
 
-print("Loading data...")
-df = pd.read_csv(DATA_PATH).iloc[:50_000] # training on smaller dataset to reduce total training time
+print("\nLoading data...")
+df = pd.read_csv(DATA_PATH)
+df = df.iloc[len(df) - SAMPLE_SIZE:]
 df_clean = df.dropna()
 
 split_idx = int(len(df_clean) * TRAIN_RATIO)
@@ -63,7 +97,7 @@ test_df = df_clean.iloc[split_idx:]
 
 exclude_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'buy_label', 'sell_label', 'idk_label', 'Timestamp', 'DateTime']
 feature_cols = [col for col in df_clean.columns if col not in exclude_cols]
-feature_cols = list(feature_cols)  # Ensure it's a list of strings
+feature_cols = list(feature_cols)
 
 X_train = train_df[feature_cols].values
 X_test = test_df[feature_cols].values
@@ -72,9 +106,10 @@ y_train = train_df[['buy_label', 'sell_label']].values
 y_test = test_df[['buy_label', 'sell_label']].values
 
 print(f"Train: {len(X_train)}, Test: {len(X_test)}, Features: {len(feature_cols)}")
+print(f"Device: {DEVICE.upper()}, Tree method: {TREE_METHOD}")
 
 # ================================
-# CLASS WEIGHTS (FIXED)
+# CLASS WEIGHTS
 # ================================
 
 buy_ratio_train = y_train[:, 0].sum() / len(y_train)
@@ -86,146 +121,315 @@ sell_weight = (1 / sell_ratio_train) * WEIGHT_FACTOR if sell_ratio_train > 0 els
 print(f"Class weights: BUY={buy_weight:.2f}, SELL={sell_weight:.2f}")
 
 # ================================
-# GENERATE PARAMETER COMBINATIONS
+# OBJECTIVE FUNCTION FOR OPTUNA
 # ================================
 
-param_names = list(PARAM_GRID.keys())
-param_values = list(PARAM_GRID.values())
-all_combinations = list(product(*param_values))
+dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
+current_device = DEVICE
+current_tree_method = TREE_METHOD
 
-total_combinations = len(all_combinations)
-print(f"\nTotal parameter combinations to test: {total_combinations}")
-
-# ================================
-# TUNING LOOP
-# ================================
-
-results = []
-
-for combo_idx, param_combo in enumerate(tqdm(all_combinations, desc="Testing hyperparameters")):
-    params = dict(zip(param_names, param_combo))
+def objective(trial):
+    global current_device, current_tree_method
+    
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 400),
+        'max_depth': trial.suggest_int('max_depth', 1, 7),
+        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.2, log=True),
+        'subsample': trial.suggest_float('subsample', 0.2, 1.0),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 20),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.3, 1.0),
+        'gamma': trial.suggest_float('gamma', 0, 5.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 2.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0.1, 10.0, log=True)
+    }
     
     try:
-        # Train BUY and SELL models with these parameters
         models = {}
-        dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
         
         for label_idx, label_name in enumerate(['buy', 'sell']):
             y_train_label = y_train[:, label_idx]
             class_weight = buy_weight if label_name == 'buy' else sell_weight
             sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
             
-            # XGBoost training
             dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
-            
-            tree_method = 'auto'
             
             xgb_params = {
                 'max_depth': params['max_depth'],
                 'learning_rate': params['learning_rate'],
                 'subsample': params['subsample'],
+                'min_child_weight': params['min_child_weight'],
+                'colsample_bytree': params['colsample_bytree'],
+                'gamma': params['gamma'],
+                'reg_alpha': params['reg_alpha'],
+                'reg_lambda': params['reg_lambda'],
                 'objective': 'binary:logistic',
-                'tree_method': tree_method
-                # 'verbose_eval': False
+                'tree_method': current_tree_method,
+                'device': current_device
             }
             
-            # Add device parameter (auto will use GPU if available)
-            xgb_params['device'] = 'cuda'
-            
-            model = xgb.train(
-                xgb_params,
-                dtrain,
-                num_boost_round=params['n_estimators'],
-                verbose_eval=False
-            )
-            
-            models[label_name] = model
+            try:
+                evals_result = {}
+                model = xgb.train(
+                    xgb_params,
+                    dtrain,
+                    num_boost_round=params['n_estimators'],
+                    verbose_eval=False,
+                    evals=[(dtrain, 'train')],
+                    evals_result=evals_result
+                )
+                models[label_name] = model
+                
+                step_offset = label_idx * (params['n_estimators'] + 1000)
+                trial.report(evals_result['train']['logloss'][-1], step=step_offset + params['n_estimators'])
+                
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
+                
+            except Exception as gpu_error:
+                if current_device == 'cuda':
+                    print(f"\nGPU error - falling back to CPU for remaining trials")
+                    current_device = 'cpu'
+                    current_tree_method = 'hist'
+                    xgb_params['device'] = 'cpu'
+                    xgb_params['tree_method'] = 'hist'
+                    model = xgb.train(
+                        xgb_params,
+                        dtrain,
+                        num_boost_round=params['n_estimators'],
+                        verbose_eval=False
+                    )
+                    models[label_name] = model
+                else:
+                    raise
         
-        # Generate predictions on test set
         buy_proba = models['buy'].predict(dtest)
         sell_proba = models['sell'].predict(dtest)
+
+        try:
+            auc_buy = roc_auc_score(y_test[:, 0], buy_proba)
+            auc_sell = roc_auc_score(y_test[:, 1], sell_proba)
+            return (auc_buy + auc_sell) / 2
+        except ValueError:
+            return 0.0
         
-        # Create predictions CSV
-        predictions_df = test_df.copy()
-        predictions_df['buy_prob'] = buy_proba
-        predictions_df['sell_prob'] = sell_proba
-        predictions_df['decision'] = 'NO_TRADE'
-        predictions_df.loc[(buy_proba > 0.5) & (sell_proba < 0.5), 'decision'] = 'BUY'
-        predictions_df.loc[(sell_proba > 0.5) & (buy_proba < 0.5), 'decision'] = 'SELL'
-        
-        # Temporary output
-        temp_pred_path = "temp_predictions.csv"
-        predictions_df.to_csv(temp_pred_path, index=False)
-        
-        # Extract key metrics from predictions
-        decision_counts = predictions_df['decision'].value_counts()
-        buy_count = decision_counts.get('BUY', 0)
-        sell_count = decision_counts.get('SELL', 0)
-        no_trade_count = decision_counts.get('NO_TRADE', 0)
-        
-        # Calculate win rate on test set (simple heuristic: buy_prob - sell_prob > 0.3 = good signal)
-        test_accuracy_proxy = ((buy_proba > 0.6).sum() + (sell_proba > 0.6).sum()) / len(test_df)
-        
-        # Store result
-        results.append({
-            'n_estimators': params['n_estimators'],
-            'max_depth': params['max_depth'],
-            'learning_rate': params['learning_rate'],
-            'subsample': params['subsample'],
-            'buy_signals': buy_count,
-            'sell_signals': sell_count,
-            'no_trade_signals': no_trade_count,
-            'prediction_confidence': test_accuracy_proxy,
-            'status': 'success'
-        })
-        
+    except optuna.TrialPruned:
+        raise
     except Exception as e:
-        results.append({
-            'n_estimators': params['n_estimators'],
-            'max_depth': params['max_depth'],
-            'learning_rate': params['learning_rate'],
-            'subsample': params['subsample'],
-            'status': f'error: {str(e)[:50]}'
-        })
+        print(f"Trial error: {str(e)[:100]}")
+        return 0.0
+
+# ================================
+# PHASE 1: EXPLORATION
+# ================================
+
+print(f"\n===== PHASE 1: EXPLORATION ({PHASE_1_TRIALS} trials with pruning) =====")
+
+sampler = TPESampler(seed=42)
+pruner = MedianPruner(n_startup_trials=5, n_warmup_steps=5)
+
+study = optuna.create_study(
+    direction='maximize',
+    sampler=sampler,
+    pruner=pruner
+)
+
+study.optimize(
+    objective,
+    n_trials=PHASE_1_TRIALS,
+    n_jobs=N_JOBS,
+    show_progress_bar=True
+)
+
+print(f"\nPhase 1 Results:")
+print(f"  Best score: {study.best_value:.4f}")
+print(f"  Best params: {study.best_params}")
+print(f"  Pruned trials: {len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])}")
+
+# ================================
+# PHASE 2: REFINEMENT
+# ================================
+
+print(f"\n===== PHASE 2: REFINEMENT ({PHASE_2_TRIALS} trials around best region) =====")
+
+best_p1 = study.best_params
+
+def refined_objective(trial):
+    global current_device, current_tree_method
+
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators',
+            max(50, int(best_p1['n_estimators'] * 0.8)),
+            min(400, int(best_p1['n_estimators'] * 1.2))),
+        'max_depth': trial.suggest_int('max_depth',
+            max(1, best_p1['max_depth'] - 1),
+            min(7, best_p1['max_depth'] + 1)),
+        'learning_rate': trial.suggest_float('learning_rate',
+            best_p1['learning_rate'] * 0.5,
+            best_p1['learning_rate'] * 2.0, log=True),
+        'subsample': trial.suggest_float('subsample',
+            max(0.2, best_p1['subsample'] - 0.15),
+            min(1.0, best_p1['subsample'] + 0.15)),
+        'min_child_weight': trial.suggest_int('min_child_weight',
+            max(1, best_p1['min_child_weight'] - 3),
+            min(20, best_p1['min_child_weight'] + 3)),
+        'colsample_bytree': trial.suggest_float('colsample_bytree',
+            max(0.3, best_p1['colsample_bytree'] - 0.15),
+            min(1.0, best_p1['colsample_bytree'] + 0.15)),
+        'gamma': trial.suggest_float('gamma',
+            max(0.0, best_p1['gamma'] - 1.0),
+            min(5.0, best_p1['gamma'] + 1.0)),
+        'reg_alpha': trial.suggest_float('reg_alpha',
+            max(0.0, best_p1['reg_alpha'] - 0.5),
+            min(2.0, best_p1['reg_alpha'] + 0.5)),
+        'reg_lambda': trial.suggest_float('reg_lambda',
+            max(0.1, best_p1['reg_lambda'] * 0.5),
+            min(10.0, best_p1['reg_lambda'] * 2.0), log=True)
+    }
+
+    try:
+        models = {}
+
+        for label_idx, label_name in enumerate(['buy', 'sell']):
+            y_train_label = y_train[:, label_idx]
+            class_weight = buy_weight if label_name == 'buy' else sell_weight
+            sample_weight = np.where(y_train_label == 1, class_weight, 1.0)
+
+            dtrain = xgb.DMatrix(X_train, label=y_train_label, weight=sample_weight, feature_names=feature_cols)
+
+            xgb_params = {
+                'max_depth': params['max_depth'],
+                'learning_rate': params['learning_rate'],
+                'subsample': params['subsample'],
+                'min_child_weight': params['min_child_weight'],
+                'colsample_bytree': params['colsample_bytree'],
+                'gamma': params['gamma'],
+                'reg_alpha': params['reg_alpha'],
+                'reg_lambda': params['reg_lambda'],
+                'objective': 'binary:logistic',
+                'tree_method': current_tree_method,
+                'device': current_device
+            }
+
+            try:
+                evals_result = {}
+                model = xgb.train(
+                    xgb_params,
+                    dtrain,
+                    num_boost_round=params['n_estimators'],
+                    verbose_eval=False,
+                    evals=[(dtrain, 'train')],
+                    evals_result=evals_result
+                )
+                models[label_name] = model
+
+                step_offset = label_idx * (params['n_estimators'] + 1000)
+                trial.report(evals_result['train']['logloss'][-1], step=step_offset + params['n_estimators'])
+
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
+
+            except Exception as gpu_error:
+                if current_device == 'cuda':
+                    print(f"\nGPU error - falling back to CPU for remaining trials")
+                    current_device = 'cpu'
+                    current_tree_method = 'hist'
+                    xgb_params['device'] = 'cpu'
+                    xgb_params['tree_method'] = 'hist'
+                    model = xgb.train(
+                        xgb_params,
+                        dtrain,
+                        num_boost_round=params['n_estimators'],
+                        verbose_eval=False
+                    )
+                    models[label_name] = model
+                else:
+                    raise
+
+        buy_proba = models['buy'].predict(dtest)
+        sell_proba = models['sell'].predict(dtest)
+
+        try:
+            auc_buy = roc_auc_score(y_test[:, 0], buy_proba)
+            auc_sell = roc_auc_score(y_test[:, 1], sell_proba)
+            return (auc_buy + auc_sell) / 2
+        except ValueError:
+            return 0.0
+
+    except optuna.TrialPruned:
+        raise
+    except Exception as e:
+        print(f"Trial error: {str(e)[:100]}")
+        return 0.0
+
+refined_study = optuna.create_study(
+    direction='maximize',
+    sampler=TPESampler(seed=84),
+    pruner=MedianPruner(n_startup_trials=3, n_warmup_steps=3)
+)
+
+refined_study.optimize(
+    refined_objective,
+    n_trials=PHASE_2_TRIALS,
+    n_jobs=N_JOBS,
+    show_progress_bar=True
+)
+
+if refined_study.best_value >= study.best_value:
+    best_trial = refined_study.best_trial
+    print(f"\nPhase 2 improved on Phase 1: {study.best_value:.4f} → {refined_study.best_value:.4f}")
+else:
+    best_trial = study.best_trial
+    print(f"\nPhase 1 result held: {study.best_value:.4f} (Phase 2 best: {refined_study.best_value:.4f})")
 
 # ================================
 # RESULTS ANALYSIS
 # ================================
 
-results_df = pd.DataFrame(results)
+print(f"\n===== BAYESIAN OPTIMIZATION COMPLETE =====")
+print(f"Total trials: {len(study.trials) + len(refined_study.trials)}")
+print(f"Successful: {len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]) + len([t for t in refined_study.trials if t.state == optuna.trial.TrialState.COMPLETE])}")
+print(f"Pruned (early stopped): {len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]) + len([t for t in refined_study.trials if t.state == optuna.trial.TrialState.PRUNED])}")
 
-# Filter successful runs
-successful = results_df[results_df['status'] == 'success'].copy()
+best_trial = best_trial
 
-print(f"\n===== HYPERPARAMETER TUNING RESULTS =====")
-print(f"Successful runs: {len(successful)}/{total_combinations}")
+print(f"\n===== BEST PARAMETERS =====")
+print(f"n_estimators: {best_trial.params['n_estimators']}")
+print(f"max_depth: {best_trial.params['max_depth']}")
+print(f"learning_rate: {best_trial.params['learning_rate']:.6f}")
+print(f"subsample: {best_trial.params['subsample']:.4f}")
+print(f"min_child_weight: {best_trial.params['min_child_weight']}")
+print(f"colsample_bytree: {best_trial.params['colsample_bytree']:.4f}")
+print(f"gamma: {best_trial.params['gamma']:.4f}")
+print(f"reg_alpha: {best_trial.params['reg_alpha']:.4f}")
+print(f"reg_lambda: {best_trial.params['reg_lambda']:.4f}")
+print(f"Avg ROC-AUC: {best_trial.value:.4f}")
 
-if len(successful) > 0:
-    # Sort by prediction confidence (proxy for quality)
-    successful_sorted = successful.sort_values('prediction_confidence', ascending=False)
-    
-    print(f"\n===== TOP 10 PARAMETER SETS (by prediction confidence) =====\n")
-    print(successful_sorted[['n_estimators', 'max_depth', 'learning_rate', 'subsample', 
-                              'buy_signals', 'sell_signals', 'prediction_confidence']].head(10).to_string(index=False))
-    
-    # Save full results
-    results_df.to_csv('tuning_results.csv', index=False)
-    print(f"\n✓ Full results saved to: tuning_results.csv")
-    
-    # Best parameters
-    best_params = successful_sorted.iloc[0]
-    print(f"\n===== RECOMMENDED PARAMETERS =====")
-    print(f"n_estimators: {int(best_params['n_estimators'])}")
-    print(f"max_depth: {int(best_params['max_depth'])}")
-    print(f"learning_rate: {best_params['learning_rate']}")
-    print(f"subsample: {best_params['subsample']}")
-    print(f"Prediction confidence: {best_params['prediction_confidence']:.4f}")
-    
-    print(f"\n⚠️  These are based on signal generation, not backtest P&L.")
-    print(f"⚠️  For final validation, train with recommended params and run backtest.py manually.")
-else:
-    print("❌ No successful runs - check error log in tuning_results.csv")
+# ================================
+# SAVE RESULTS
+# ================================
 
-# Clean up temp file
-if os.path.exists("temp_predictions.csv"):
-    os.remove("temp_predictions.csv")
+trials_df = study.trials_dataframe()
+trials_df.to_csv('tuning_results_bayesian.csv', index=False)
+print(f"\n✓ Full results saved to: tuning_results_bayesian.csv")
+
+with open('best_hyperparameters.txt', 'w') as f:
+    f.write(f"Best Hyperparameters (Bayesian Optimization)\n")
+    f.write(f"==========================================\n")
+    f.write(f"n_estimators: {best_trial.params['n_estimators']}\n")
+    f.write(f"max_depth: {best_trial.params['max_depth']}\n")
+    f.write(f"learning_rate: {best_trial.params['learning_rate']}\n")
+    f.write(f"subsample: {best_trial.params['subsample']}\n")
+    f.write(f"min_child_weight: {best_trial.params['min_child_weight']}\n")
+    f.write(f"colsample_bytree: {best_trial.params['colsample_bytree']}\n")
+    f.write(f"gamma: {best_trial.params['gamma']}\n")
+    f.write(f"reg_alpha: {best_trial.params['reg_alpha']}\n")
+    f.write(f"reg_lambda: {best_trial.params['reg_lambda']}\n")
+    f.write(f"Avg ROC-AUC: {best_trial.value:.4f}\n")
+
+print(f"✓ Best params saved to: best_hyperparameters.txt")
+
+print(f"\n===== NEXT STEPS =====")
+print(f"1. Copy the best parameters above")
+print(f"2. Update model.py with these hyperparameters")
+print(f"3. Run: python model.py  (trains on full dataset)")
+print(f"4. Run: python backtest.py  (validates profitability)")

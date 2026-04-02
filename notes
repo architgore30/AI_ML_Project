@@ -49,6 +49,90 @@ Pipeline became:
 5. Backtest for actual profits
 6. Then we know if it's real
 
+===== SESSION REOPENED =====
+April 2026 - Back for one more push.
+Goal: Fine-tune TP/SL thresholds with empirical distribution of price movements.
+New approach: Box plot of actual 30-minute highs/lows as multiples of starting price.
+This will show the exact price action distribution and guide better threshold selection.
+
+===== TP/SL EMPIRICAL TUNING RESULTS =====
+
+Ran data visualization with MAX_HORIZON parameter across multiple time periods (post-2018 only).
+
+30-minute horizon:
+  - Highest price in window: mean 0.00375x, median similar
+  - Lowest price in window: mean -0.00375x, median similar
+  - Current tuning: TP=0.003x, SL=0.002x (quant standard, works here)
+  - Reasoning: more cautious SL for early risk detection
+
+20-minute horizon:
+  - Price movement: roughly 0.003x in both directions
+  - Absolute std dev: 25% lower than 30m period
+  - Hypothesis: easier for model to learn patterns at shorter horizon with cleaner signal
+
+10-minute horizon:
+  - Price movement: roughly 0.0021x in both directions
+  - Absolute std dev: another 30% lower than 20m
+  - Pattern continuing: noise reduces with shorter horizons
+
+5-minute horizon:
+  - Price movement: roughly 0.00147x
+  - Expected: more noise should appear here (but didn't with absolute std dev)
+
+1-minute horizon:
+  - Absolute std dev: extremely low (confirmed noise pattern was wrong metric)
+
+===== KEY DISCOVERY: ABSOLUTE vs RELATIVE STANDARD DEVIATION =====
+
+Initial observation: As MAX_HORIZON decreased, absolute std dev kept dropping.
+This seemed wrong - at shorter timeframes, noise should increase, not decrease.
+
+Root cause identified: Was measuring absolute standard deviation, not relative.
+Absolute std dev naturally decreases with smaller price movements.
+This is misleading for cross-horizon comparisons.
+
+Solution: Calculate relative standard deviation (coefficient of variation) instead.
+Formula: (std dev / mean) * 100
+This normalizes across different price movement magnitudes.
+
+Expected pattern with relative std dev:
+- Shorter horizons (5m, 1m) will show HIGHER relative volatility
+- Longer horizons (30m) will show LOWER relative volatility
+- This matches market reality: short-term more erratic, long-term more directional
+
+Next step: Implement relative std dev in data_visualization.py for accurate signal quality assessment.
+
+===== RELATIVE STD DEV ANALYSIS - FINAL HORIZON SELECTION =====
+
+Calculated relative std dev (coefficient of variation) across all MAX_HORIZON values:
+
+1m:   rel_std: 183%
+2m:   rel_std: 146.6%
+5m:   rel_std: 145%
+10m:  TP: 142.6%, SL: 150%
+20m:  TP: 142%, SL: 150.4%
+30m:  TP: 141%, SL: 150%
+60m:  TP: 138%, SL: 148.4% (price movement: 0.0055x both directions)
+120m: TP: 133.75% at 0.0078x, SL: 145% at 0.0081x
+
+KEY INSIGHTS:
+- Relative std dev drops sharply from 1m (183%) to 2m (146.6%)
+- After 2m, stabilizes in 141-150% range for 10m onwards
+- 30m shows: TP rel_std 141%, SL rel_std 150%
+- This plateau after 2-5m indicates diminishing returns beyond 30m
+
+DECISION: TP=0.003x, SL=0.002x, MAX_HORIZON=30m
+
+Rationale:
+1. 30m is where signal quality stabilizes - relative std dev plateaus at 141-150%
+2. Going to 60m or 120m doesn't meaningfully improve signal quality
+3. 30m is practical timeframe (not scalping noise, not slow swing trading)
+4. 0.003/0.002 aligns with quant research standard and empircal data
+5. Asymmetric thresholds (0.003 vs 0.002) maintains risk-first bias
+
+Status: Updated labelling.py, copilot-instructions.md, and all references to v3 tuned thresholds.
+Ready to generate new labels and retrain model.
+
 Must remember:
 - No future data in features (data leakage trap)
 - Time-based splits, never shuffle
@@ -64,6 +148,49 @@ Ran programme labelling.py and noticed: overalapping between the three signals i
 implemented every single feature I could think of in financial metrics and indicators
 relevence score is quite low for many of he features but for XGBoost those should still help fine tune and improve the accuracy, plus, relavence is a linear thing. we don't know how usefull these features might be wehn used in correlation to the other features. the relevance scores that XGBoost will produce for us might be a much better indicator of which features are actually irrelavent or insignificant.
 For now I don't feel the need to scale back on the features. but if we move to deep learnign in the future then features will be cut back and normalized.
+
+===== HYPERPARAMETER TUNING STRATEGY FOR WEAK HARDWARE =====
+
+Updated hyperparameter_tuning.py with hardware-aware strategy:
+
+GPU/CPU Automatic Detection & Fallback:
+- Detects CUDA availability on import
+- If GPU available: uses gpu_hist (tree_method='gpu_hist', device='cuda')
+- If GPU unavailable: uses hist (tree_method='hist', device='cpu')
+- During training: if GPU error occurs, automatically falls back to CPU and continues
+- No manual intervention needed - script handles all cases
+
+Hardware-Aware Grid Search:
+- Detects CPU core count using psutil
+- Weak hardware (≤4 cores, like i5): Automatically uses LITE_SEARCH
+- Strong hardware (>4 cores): Uses FULL search
+
+LITE Search Strategy (for i5 CPU):
+- Parameter combinations: 60 (down from 450)
+  * n_estimators: [50, 150] instead of [50, 100, 200, 300, 350, 400]
+  * max_depth: [2, 5] instead of [1, 2, 3, 5, 7]
+  * learning_rate: [0.05, 0.1] instead of [0.01, 0.05, 0.1]
+  * subsample: [0.6, 1.0] instead of [0.2, 0.4, 0.6, 0.8, 1.0]
+- Data sample: 25,000 rows (50% reduction)
+- Estimated runtime: 30-45 minutes on i5 CPU
+- Purpose: Fast exploration to identify parameter range patterns
+
+Workflow for i5 with weak hardware:
+1. Run LITE search first (30-45 min) to explore parameter space
+2. Review top 10 results to understand trade-offs
+3. Based on patterns, decide to either:
+   a. Manually expand good ranges and run LITE again
+   b. Switch to FULL search if patterns are clear
+4. Use best params to train final model on FULL dataset offline
+
+GPU vs CPU performance:
+- GPU (if available): 3-5x faster than CPU
+- i5 CPU rough timing:
+  * LITE: 30-45 min (60 combinations)
+  * FULL: Would take 6-8 hours (450 combinations)
+- Recommendation: Always use LITE on weak CPU, upgrade to FULL only on GPU or strong CPU
+
+Documentation: Created HYPERPARAMETER_TUNING_GUIDE.md with detailed strategy, timing estimates, and best practices for each hardware type.
 I will have to be careful while normalizing to avoid data leakage.
 
 Implemented XGBoost to predict probability of buy and probability of sell using two seperate models
@@ -654,3 +781,55 @@ Bitcoin trend detection trading system did NOT achieve profitable signal generat
 - For 1-minute data, consider: higher time aggregation (5/15/60 min) or different market microstructure approach
 - Trend detection may require regime detection first (bull vs bear vs ranging) for conditional accuracy
 - Short timeframe + high noise = need fundamentally different strategy (mean reversion, volatility arbitrage, etc)
+
+**Fine tuning after improvements in hyperparameter fine tuning stratergy and labelling stratergy tuning with different sizes of subsamples:**
+
+*15,000 data points*
+n_estimators: 75  --> 373
+max_depth: 1 --> 3
+learning_rate: 0.003153 --> 0.008559
+subsample: 0.3808 --> 0.7467
+Score: 0.5701
+
+*50,000 data points*
+n_estimators: 211 --> 181
+max_depth: 2 --> 4
+learning_rate: 0.001346 --> 0.017178
+subsample: 0.4621 --> 0.2248
+Score: 0.6410
+
+*100,000 data points*
+n_estimators: 67 --> 163
+max_depth: 4 --> 3
+learning_rate: 0.003099 --> 0.002642
+subsample: 0.2688 --> 0.4624
+Score: 0.6400
+
+made a small change in the tuning code to tune based on more recent data.
+Noticed that prediction score was consistently maxing out with mroe data. replaced prediction score as a metric to judge model with ROC-AUC. retuned and updatedabove values.
+
+Score is stagnating, if score continues to platoue with 200,000 data points then I will stop tuning
+*200,00 data points*
+n_estimators: 296
+max_depth: 2
+learning_rate: 0.070195
+subsample: 0.3584
+Score: 0.6250
+
+score has stagnated, however, values still shwo massive change. I will stick to 200,000 data points but expand the training to cover more possibilities and more paramters to fit.
+
+*200,000 data points*
+n_estimators: 396
+max_depth: 2
+learning_rate: 0.035827
+subsample: 0.6848
+min_child_weight: 15
+colsample_bytree: 0.5757
+gamma: 0.2493
+reg_alpha: 1.6145
+reg_lambda: 1.6985
+Avg ROC-AUC: 0.6244
+
+The model produced by this still refuses to fire buy signals correctly. sell signals are also often high while buy signals are low. It seems 50% is nmot the correct threshold. to work around the model's weakness, weak buy signals will be counted as buy and only strogn sell signals will be counted as sell. we will prioritize the buy model's decision.
+
+This has resulted in massive losses. Need to tune these values further and listen to sell decisions more.

@@ -1,0 +1,12 @@
+Best Hyperparameters (Bayesian Optimization)
+==========================================
+n_estimators: 396
+max_depth: 2
+learning_rate: 0.035826892191145064
+subsample: 0.6848402533780263
+min_child_weight: 15
+colsample_bytree: 0.5757152735134704
+gamma: 0.2492995061272243
+reg_alpha: 1.6145493952149055
+reg_lambda: 1.698500153610803
+Avg ROC-AUC: 0.6244
