@@ -16,16 +16,27 @@ DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # XGBoost hyperparameters
-n_estimators = 399
-max_depth = 10
-learning_rate = 0.007097
-subsample = 0.7826
-min_child_weight = 3
-colsample_bytree = 0.7046
-gamma = 5.1606
-reg_alpha = 3.2830
-reg_lambda = 3.2460
+# buy
+n_estimators1 = 409
+max_depth1 = 12
+learning_rate1 = 0.010558
+subsample1 = 0.8731
+min_child_weight1 = 14
+colsample_bytree1 = 0.7746
+gamma1 = 18.4032
+reg_alpha1 = 3.4922
+reg_lambda1 = 0.5273
 
+# sell
+n_estimators2 = 399
+max_depth2 = 10
+learning_rate2 = 0.007097
+subsample2 = 0.7826
+min_child_weight2 = 3
+colsample_bytree2 = 0.7046
+gamma2= 5.1606
+reg_alpha2 = 3.2830
+reg_lambda2 = 3.2460
 # ================================
 # HARDWARE DETECTION
 # ================================
@@ -138,22 +149,41 @@ for idx, label_name in enumerate(tqdm(['buy', 'sell'], desc="Training models")):
     # Create DMatrix for training (no manual sample weights — handled via scale_pos_weight)
     dtrain = xgb.DMatrix(X_train, label=y_train_label, feature_names=feature_cols)
     
-    # XGBoost parameters
-    params = {
-        'objective': 'binary:logistic',
-        'max_depth': max_depth,
-        'learning_rate': learning_rate,
-        'subsample': subsample,
-        'min_child_weight': min_child_weight,
-        'colsample_bytree': colsample_bytree,
-        'gamma': gamma,
-        'reg_alpha': reg_alpha,
-        'reg_lambda': reg_lambda,
-        'scale_pos_weight': buy_scale_pos_weight if label_name == 'buy' else sell_scale_pos_weight,
-        'tree_method': TREE_METHOD,
-        'device': DEVICE,
-        'nthread': N_THREADS,
-    }
+    # XGBoost parameters — separate hyperparameters per model
+    if label_name == 'buy':
+        params = {
+            'objective': 'binary:logistic',
+            'max_depth': max_depth1,
+            'learning_rate': learning_rate1,
+            'subsample': subsample1,
+            'min_child_weight': min_child_weight1,
+            'colsample_bytree': colsample_bytree1,
+            'gamma': gamma1,
+            'reg_alpha': reg_alpha1,
+            'reg_lambda': reg_lambda1,
+            'scale_pos_weight': buy_scale_pos_weight,
+            'tree_method': TREE_METHOD,
+            'device': DEVICE,
+            'nthread': N_THREADS,
+        }
+        n_estimators = n_estimators1
+    else:
+        params = {
+            'objective': 'binary:logistic',
+            'max_depth': max_depth2,
+            'learning_rate': learning_rate2,
+            'subsample': subsample2,
+            'min_child_weight': min_child_weight2,
+            'colsample_bytree': colsample_bytree2,
+            'gamma': gamma2,
+            'reg_alpha': reg_alpha2,
+            'reg_lambda': reg_lambda2,
+            'scale_pos_weight': sell_scale_pos_weight,
+            'tree_method': TREE_METHOD,
+            'device': DEVICE,
+            'nthread': N_THREADS,
+        }
+        n_estimators = n_estimators2
     
     # Custom progress callback
     pbar = tqdm(total=n_estimators, desc=f"  {label_name.upper()} trees", leave=False)
