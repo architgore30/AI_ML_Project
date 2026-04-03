@@ -108,8 +108,8 @@ print(f"Train: {len(X_train)}, Test: {len(X_test)}, Features: {len(feature_cols)
 print(f"Device: {DEVICE.upper()}, Tree method: {TREE_METHOD}")
 print(f"Buy samples: {df.buy_label.sum()}/{len(df)}")
 print(f"Sell samples: {df.sell_label.sum()}/{len(df)}")
-print(f"Buy samples (test): {y_test.iloc[:, 0].sum()}/{len(y_test)}")
-print(f"Sell samples (test): {y_test.iloc[:, 1].sum()}/{len(y_test)}")
+print(f"Buy samples (test): {y_test[:, 0].sum()}/{len(y_test)}")
+print(f"Sell samples (test): {y_test[:, 1].sum()}/{len(y_test)}")
 
 # ================================
 # CLASS WEIGHTS
@@ -417,17 +417,18 @@ for label_idx, label_name, scale_pos_weight in [
     print(f"\n\u2713 Full results saved to: tuning_results_{label_name}.csv")
 
     with open(f'best_hyperparameters_{label_name}.txt', 'w') as f:
+        label_num = 1 if label_name == "buy" else 2
         f.write(f"Best Hyperparameters ({label_name.upper()} Model - Bayesian Optimization)\n")
         f.write(f"==========================================\n")
-        f.write(f"n_estimators: {best_trial.params['n_estimators']}\n")
-        f.write(f"max_depth: {best_trial.params['max_depth']}\n")
-        f.write(f"learning_rate: {best_trial.params['learning_rate']}\n")
-        f.write(f"subsample: {best_trial.params['subsample']}\n")
-        f.write(f"min_child_weight: {best_trial.params['min_child_weight']}\n")
-        f.write(f"colsample_bytree: {best_trial.params['colsample_bytree']}\n")
-        f.write(f"gamma: {best_trial.params['gamma']}\n")
-        f.write(f"reg_alpha: {best_trial.params['reg_alpha']}\n")
-        f.write(f"reg_lambda: {best_trial.params['reg_lambda']}\n")
+        f.write(f"n_estimators{label_num} = {best_trial.params['n_estimators']}\n")
+        f.write(f"max_depth{label_num} = {best_trial.params['max_depth']}\n")
+        f.write(f"learning_rate{label_num} = {best_trial.params['learning_rate']}\n")
+        f.write(f"subsample{label_num} = {best_trial.params['subsample']}\n")
+        f.write(f"min_child_weight{label_num} = {best_trial.params['min_child_weight']}\n")
+        f.write(f"colsample_bytree{label_num} = {best_trial.params['colsample_bytree']}\n")
+        f.write(f"gamma{label_num} = {best_trial.params['gamma']}\n")
+        f.write(f"reg_alpha{label_num} = {best_trial.params['reg_alpha']}\n")
+        f.write(f"reg_lambda{label_num} = {best_trial.params['reg_lambda']}\n")
         f.write(f"ROC-AUC: {best_trial.value:.4f}\n")
 
     print(f"\u2713 Best params saved to: best_hyperparameters_{label_name}.txt")

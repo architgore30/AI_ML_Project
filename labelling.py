@@ -38,9 +38,9 @@ OUTPUT_PATH = "labeled_data.csv"
 # Empirically chosen based on 30-min window price movement statistics:
 # - Median high: +0.1809%, Median low: -0.1844%
 # - TP at 0.18% sits at ~50th percentile of upward moves
-# - SL at 0.15% sits slightly below median downward move magnitude
+# - SL at 0.18% sits slightly below median downward move magnitude
 TP = 0.0018        # 0.18% upward move → BUY signal
-SL = 0.0015        # 0.15% downward move → SELL signal (reversal)
+SL = 0.0018        # 0.18% downward move → SELL signal (reversal)
 MAX_HORIZON = 30   # minutes to detect threshold hit
 DOWNTREND_THRESHOLD = 0.70  # fraction of horizon bars that must be below entry for sustained downtrend sell
 
@@ -81,16 +81,10 @@ idk_labels = np.zeros(n, dtype=np.int8)
 # ================================
 # For each timestamp i, look ahead up to MAX_HORIZON minutes:
 # - If price hits upper_threshold first → buy_label = 1 (strong uptrend detected)
-# - Else if price hits lower_threshold first → sell_label = 1 (sharp reversal detected)
-# - Else if price stays below entry for 70%+ of horizon → sell_label = 1 (sustained downtrend)
-# - Else neither threshold → idk_label = 1 (market too noisy, no clear signal)
+# - Else if price hits lower_threshold first → sell_label = 1 (early risk warning)
 
 i = 0
 pbar = tqdm(total=n - MAX_HORIZON, desc="Generating labels")
-
-sell_reversal_count = 0
-sell_downtrend_count = 0
-
 while i < n - MAX_HORIZON:
     current_price = close[i]
 
@@ -110,30 +104,23 @@ while i < n - MAX_HORIZON:
             hit_at = j + 1
             break
         elif price <= lower_threshold:
-            label = 'sell_reversal'
+            label = 'sell'
             hit_at = j + 1
             break
+    if hit_at == MAX_HORIZON:
+        label = 'idk'
 
-    # If no barrier was hit, check for sustained downtrend
-    if label == 'idk':
-        bars_below_entry = (future_prices < current_price).sum()
-        if bars_below_entry >= MAX_HORIZON * DOWNTREND_THRESHOLD:
-            label = 'sell_downtrend'
-
+    # update label arrays based on detected signal
     if label == 'buy':
-        buy_labels[i] = 1
-    elif label == 'sell_reversal':
+        buy_labels[i] = 1 
+    elif label == 'sell':
         sell_labels[i] = 1
-        sell_reversal_count += 1
-    elif label == 'sell_downtrend':
-        sell_labels[i] = 1
-        sell_downtrend_count += 1
     else:
         idk_labels[i] = 1
 
-    # Advance past the event window so overlapping mid-move bars are not re-labelled
-    pbar.update(hit_at)
-    i += hit_at
+    # update pbar and index
+    pbar.update(1)
+    i += 1
 
 pbar.close()
 
@@ -164,8 +151,6 @@ idk_ratio = idk_count / total
 print(f"\n===== LABEL DISTRIBUTION =====")
 print(f"  BUY signals:     {buy_count:,} ({buy_ratio:.2%})")
 print(f"  SELL signals:    {sell_count:,} ({sell_ratio:.2%})")
-print(f"    of which reversal:  {sell_reversal_count:,} ({sell_reversal_count/total:.2%})")
-print(f"    of which downtrend: {sell_downtrend_count:,} ({sell_downtrend_count/total:.2%})")
 print(f"  IDK (uncertain): {idk_count:,} ({idk_ratio:.2%})")
 print(f"  ---")
 print(f"  Total bars:      {total:,}")
