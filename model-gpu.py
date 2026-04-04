@@ -17,26 +17,26 @@ TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLIN
 
 # XGBoost hyperparameters
 # buy
-n_estimators1 = 459
-max_depth1 = 12
-learning_rate1 = 0.009344
-subsample1 = 0.8553
-min_child_weight1 = 19
-colsample_bytree1 = 0.6435
-gamma1 = 5.3044
-reg_alpha1 = 4.3577
-reg_lambda1 = 1.9085
+n_estimators1 = 136
+max_depth1 = 8
+learning_rate1 = 0.004743724345471587
+subsample1 = 0.5439461941205871
+min_child_weight1 = 10
+colsample_bytree1 = 0.7860391647037029
+gamma1 = 9.019033484350071
+reg_alpha1 = 4.783228687318935
+reg_lambda1 = 0.31616888831945633
 
 # sell
-n_estimators2 = 369
+n_estimators2 = 328
 max_depth2 = 11
-learning_rate2 = 0.015088
-subsample2 = 0.8361
-min_child_weight2 = 20
-colsample_bytree2 = 0.8102
-gamma2= 8.9793
-reg_alpha2 = 2.7507
-reg_lambda2 = 0.1024
+learning_rate2 = 0.0032514687415975212
+subsample2 = 0.247707761307171
+min_child_weight2 = 3
+colsample_bytree2 = 0.4501248496561113
+gamma2 = 1.0408098153771168
+reg_alpha2 = 1.9589455694756241
+reg_lambda2 = 5.024904078246764
 # ================================
 # HARDWARE DETECTION
 # ================================
@@ -118,18 +118,17 @@ sell_ratio_train = y_train[:, 1].sum() / len(y_train)
 print(f"BUY ratio: {buy_ratio_train:.4f}")
 print(f"SELL ratio: {sell_ratio_train:.4f}")
 
-# scale_pos_weight: sqrt of negative/positive ratio — softened imbalance handling
-# Full inverse frequency (raw ratio) is too aggressive for rare labels and kills precision.
-# Square root dampens the upweighting, preserving some recall without sacrificing precision.
+# scale_pos_weight: unbiased negative/positive ratio
+# This uses the raw inverse-frequency class weight without dampening.
 buy_neg = (y_train[:, 0] == 0).sum()
 buy_pos = (y_train[:, 0] == 1).sum()
 sell_neg = (y_train[:, 1] == 0).sum()
 sell_pos = (y_train[:, 1] == 1).sum()
 
-buy_scale_pos_weight = np.sqrt(buy_neg / buy_pos) if buy_pos > 0 else 1.0
-sell_scale_pos_weight = np.sqrt(sell_neg / sell_pos) if sell_pos > 0 else 1.0
+buy_scale_pos_weight = (buy_neg / buy_pos) if buy_pos > 0 else 1.0
+sell_scale_pos_weight = (sell_neg / sell_pos) if sell_pos > 0 else 1.0
 
-print(f"\nscale_pos_weight (sqrt dampened):")
+print(f"\nscale_pos_weight (raw ratio):")
 print(f"BUY:  neg={buy_neg:,}  pos={buy_pos:,}  raw_ratio={buy_neg/buy_pos:.1f}  scale_pos_weight={buy_scale_pos_weight:.2f}")
 print(f"SELL: neg={sell_neg:,}  pos={sell_pos:,}  raw_ratio={sell_neg/sell_pos:.1f}  scale_pos_weight={sell_scale_pos_weight:.2f}")
 

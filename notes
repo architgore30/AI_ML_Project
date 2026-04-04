@@ -839,3 +839,16 @@ Now we have very little trigger data points and aggressive class weights push th
 Class weights have been agressively toned down.
 
 I have found a new conclusion. There is just not enough data to train the mdoel correctly fro givign good buy signals. I have decided to havily reduce take profit and stop loss to give the model a fair chance to learn. I can then raise the standards in post process (eg: require trigger of 0.65 rather than 0.5) to tune against overtrading instead of building that into the dataset and losing valuble data points.
+
+class weight stratergy is braugh back to simple unbiased weigths rather than trying to soften them or make them more agressive.
+
+Precision has improved, recall has reduced, roc-auc has reduced. but outputs are far more constrolled typically rangind between 0.35 and 0.65 for both models and both models give outputs much closer to each other instead of the scewed results we had been gettign so far with sell model always overestimating sell signal and buy model always underestimating buy signal
+
+precision of 0.44 means buy model is simply not getting enough of the right data, weak moves are being allowed to trigger buy label. labelling threshold has been moved from 0.15 ot 0.3 percent, 0.3 is slightly above 75th percentile of all good moves. stop loss was moved from 0.18 to 0.2% so it can correctly identify loss positions and reduce noise in the model's output.
+Now we have 459k samples for buy labels (10.6% of dataset) and double that for sell labels
+
+recall has improved but precision is much lower, cit by 1/3rd in both models. going back to agggressive labelling stratergy or 0.15% lower and 0.18% upper. But we ideally want to be clearing 0.2% per trade so I moved take profit upto 0.2%
+
+precision is still low. changed hyperparameter tuning to maximize f-beta score rathern than roc-auc sothat is prioritizes precion over recall. I don't need to aim correctly every time, I just need to aim correctly whenever I pull the trigger, even if I only pull the trigger rarely.
+
+improvement is marginal. changing scoring stratergy to pure precision while maintaining minimum recall or 0.5% (trying to find top few trades rather than letting the model cheat and only giving rare signals where uptrend was easy to catch ad showign good precision).

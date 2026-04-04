@@ -1,12 +1,12 @@
 Best Hyperparameters (BUY Model - Bayesian Optimization)
 ==========================================
-n_estimators: 459
-max_depth: 12
-learning_rate: 0.00934406594060887
-subsample: 0.8553418196743547
-min_child_weight: 19
-colsample_bytree: 0.6434583387672412
-gamma: 5.304437455176293
-reg_alpha: 4.357747474716851
-reg_lambda: 1.9085076660404876
-ROC-AUC: 0.9133
+n_estimators1 = 355
+max_depth1 = 8
+learning_rate1 = 0.06926587979260976
+subsample1 = 0.5939151871276223
+min_child_weight1 = 17
+colsample_bytree1 = 0.6917716698497374
+gamma1 = 13.24122410316068
+reg_alpha1 = 2.43576716604145
+reg_lambda1 = 2.0176852791085285
+Score: 0.5460

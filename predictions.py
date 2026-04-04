@@ -22,8 +22,8 @@ DATA_PATH = "features.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # Decision thresholds (0.5 = equal confidence in both signals to avoid trading)
-THRESHOLD_BUY =  0.6 #0.55
-THRESHOLD_SELL = 0.4 #0.475
+THRESHOLD_BUY =  0.5 #0.55
+THRESHOLD_SELL = 0.5 #0.475
 
 # ================================
 # LOAD DATA

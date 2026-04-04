@@ -19,7 +19,7 @@ import psutil
 import optuna
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import precision_recall_curve
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -115,18 +115,17 @@ print(f"Sell samples (test): {y_test[:, 1].sum()}/{len(y_test)}")
 # CLASS WEIGHTS
 # ================================
 
-# scale_pos_weight: sqrt of negative/positive ratio — softened imbalance handling
-# Full inverse frequency is too aggressive for rare labels and kills precision.
-# Square root dampens the upweighting, preserving some recall without sacrificing precision.
+# scale_pos_weight: unbiased negative/positive ratio
+# This uses the raw inverse-frequency class weight without dampening.
 buy_neg = (y_train[:, 0] == 0).sum()
 buy_pos = (y_train[:, 0] == 1).sum()
 sell_neg = (y_train[:, 1] == 0).sum()
 sell_pos = (y_train[:, 1] == 1).sum()
 
-buy_scale_pos_weight = np.sqrt(buy_neg / buy_pos) if buy_pos > 0 else 1.0
-sell_scale_pos_weight = np.sqrt(sell_neg / sell_pos) if sell_pos > 0 else 1.0
+buy_scale_pos_weight = (buy_neg / buy_pos) if buy_pos > 0 else 1.0
+sell_scale_pos_weight = (sell_neg / sell_pos) if sell_pos > 0 else 1.0
 
-print(f"scale_pos_weight (sqrt dampened): BUY={buy_scale_pos_weight:.2f}, SELL={sell_scale_pos_weight:.2f}")
+print(f"scale_pos_weight (raw ratio): BUY={buy_scale_pos_weight:.2f}, SELL={sell_scale_pos_weight:.2f}")
 
 # ================================
 # OBJECTIVE FUNCTION FOR OPTUNA
@@ -135,6 +134,29 @@ print(f"scale_pos_weight (sqrt dampened): BUY={buy_scale_pos_weight:.2f}, SELL={
 dtest = xgb.DMatrix(X_test, feature_names=feature_cols)
 current_device = DEVICE
 current_tree_method = TREE_METHOD
+
+
+def bounded_int_window(center, lower_bound, upper_bound, delta):
+    low = max(lower_bound, int(center - delta))
+    high = min(upper_bound, int(center + delta))
+    if low > high:
+        low = high = min(max(int(center), lower_bound), upper_bound)
+    return low, high
+
+
+def bounded_float_window(center, lower_bound, upper_bound, delta=None, scale=None):
+    if scale is not None:
+        low = max(lower_bound, center * scale[0])
+        high = min(upper_bound, center * scale[1])
+    else:
+        low = max(lower_bound, center - delta)
+        high = min(upper_bound, center + delta)
+
+    if low > high:
+        clamped = min(max(center, lower_bound), upper_bound)
+        low = high = clamped
+
+    return low, high
 
 def make_objective(label_idx, label_name, scale_pos_weight):
     def objective(trial):
@@ -205,10 +227,9 @@ def make_objective(label_idx, label_name, scale_pos_weight):
                     raise
 
             proba = model.predict(dtest)
-            try:
-                return roc_auc_score(y_test[:, label_idx], proba)
-            except ValueError:
-                return 0.0
+            precision, recall, _ = precision_recall_curve(y_test[:, label_idx], proba)
+            mask = recall >= 0.005
+            return float(precision[mask].max()) if mask.any() else 0.0
 
         except optuna.TrialPruned:
             raise
@@ -222,34 +243,44 @@ def make_refined_objective(best_p1, label_idx, label_name, scale_pos_weight):
     def refined_objective(trial):
         global current_device, current_tree_method
 
+        n_estimators_low, n_estimators_high = bounded_int_window(best_p1['n_estimators'], 50, 600, 0.2 * best_p1['n_estimators'])
+        max_depth_low, max_depth_high = bounded_int_window(best_p1['max_depth'], 1, 15, 1)
+        learning_rate_low, learning_rate_high = bounded_float_window(best_p1['learning_rate'], 0.001, 0.1, scale=(0.5, 2.0))
+        subsample_low, subsample_high = bounded_float_window(best_p1['subsample'], 0.2, 1.0, delta=0.15)
+        min_child_weight_low, min_child_weight_high = bounded_int_window(best_p1['min_child_weight'], 1, 25, 3)
+        colsample_low, colsample_high = bounded_float_window(best_p1['colsample_bytree'], 0.3, 1.0, delta=0.15)
+        gamma_low, gamma_high = bounded_float_window(best_p1['gamma'], 0.0, 25.0, delta=2.0)
+        reg_alpha_low, reg_alpha_high = bounded_float_window(best_p1['reg_alpha'], 0.0, 5.0, delta=0.5)
+        reg_lambda_low, reg_lambda_high = bounded_float_window(best_p1['reg_lambda'], 0.1, 10.0, scale=(0.5, 2.0))
+
         params = {
             'n_estimators': trial.suggest_int('n_estimators',
-                max(50, int(best_p1['n_estimators'] * 0.8)),
-                min(600, int(best_p1['n_estimators'] * 1.2))),
+                n_estimators_low,
+                n_estimators_high),
             'max_depth': trial.suggest_int('max_depth',
-                max(1, best_p1['max_depth'] - 1),
-                min(12, best_p1['max_depth'] + 1)),
+                max_depth_low,
+                max_depth_high),
             'learning_rate': trial.suggest_float('learning_rate',
-                best_p1['learning_rate'] * 0.5,
-                best_p1['learning_rate'] * 2.0, log=True),
+                learning_rate_low,
+                learning_rate_high, log=True),
             'subsample': trial.suggest_float('subsample',
-                max(0.2, best_p1['subsample'] - 0.15),
-                min(1.0, best_p1['subsample'] + 0.15)),
+                subsample_low,
+                subsample_high),
             'min_child_weight': trial.suggest_int('min_child_weight',
-                max(1, best_p1['min_child_weight'] - 3),
-                min(20, best_p1['min_child_weight'] + 3)),
+                min_child_weight_low,
+                min_child_weight_high),
             'colsample_bytree': trial.suggest_float('colsample_bytree',
-                max(0.3, best_p1['colsample_bytree'] - 0.15),
-                min(1.0, best_p1['colsample_bytree'] + 0.15)),
+                colsample_low,
+                colsample_high),
             'gamma': trial.suggest_float('gamma',
-                max(0.0, best_p1['gamma'] - 2.0),
-                min(20.0, best_p1['gamma'] + 2.0)),
+                gamma_low,
+                gamma_high),
             'reg_alpha': trial.suggest_float('reg_alpha',
-                max(0.0, best_p1['reg_alpha'] - 0.5),
-                min(5.0, best_p1['reg_alpha'] + 0.5)),
+                reg_alpha_low,
+                reg_alpha_high),
             'reg_lambda': trial.suggest_float('reg_lambda',
-                max(0.1, best_p1['reg_lambda'] * 0.5),
-                min(10.0, best_p1['reg_lambda'] * 2.0), log=True)
+                reg_lambda_low,
+                reg_lambda_high, log=True)
         }
 
         try:
@@ -305,10 +336,9 @@ def make_refined_objective(best_p1, label_idx, label_name, scale_pos_weight):
                     raise
 
             proba = model.predict(dtest)
-            try:
-                return roc_auc_score(y_test[:, label_idx], proba)
-            except ValueError:
-                return 0.0
+            precision, recall, _ = precision_recall_curve(y_test[:, label_idx], proba)
+            mask = recall >= 0.005
+            return float(precision[mask].max()) if mask.any() else 0.0
 
         except optuna.TrialPruned:
             raise
@@ -406,7 +436,7 @@ for label_idx, label_name, scale_pos_weight in [
     print(f"gamma: {best_trial.params['gamma']:.4f}")
     print(f"reg_alpha: {best_trial.params['reg_alpha']:.4f}")
     print(f"reg_lambda: {best_trial.params['reg_lambda']:.4f}")
-    print(f"ROC-AUC: {best_trial.value:.4f}")
+    print(f"Score: {best_trial.value:.4f}")
 
     # ================================
     # SAVE RESULTS
@@ -429,7 +459,7 @@ for label_idx, label_name, scale_pos_weight in [
         f.write(f"gamma{label_num} = {best_trial.params['gamma']}\n")
         f.write(f"reg_alpha{label_num} = {best_trial.params['reg_alpha']}\n")
         f.write(f"reg_lambda{label_num} = {best_trial.params['reg_lambda']}\n")
-        f.write(f"ROC-AUC: {best_trial.value:.4f}\n")
+        f.write(f"Score: {best_trial.value:.4f}\n")
 
     print(f"\u2713 Best params saved to: best_hyperparameters_{label_name}.txt")
 

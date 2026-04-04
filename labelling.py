@@ -37,11 +37,11 @@ OUTPUT_PATH = "labeled_data.csv"
 # - SL: Easier threshold for SELL (protects against downside)
 # Empirically chosen based on 30-min window price movement statistics:
 # - Median high: +0.1809%, Median low: -0.1844%
-# - TP at 0.18% sits at ~50th percentile of upward moves
-# - SL at 0.18% sits slightly below median downward move magnitude
-TP = 0.0018        # 0.18% upward move → BUY signal
-SL = 0.0018        # 0.18% downward move → SELL signal (reversal)
-MAX_HORIZON = 30   # minutes to detect threshold hit
+# - TP at 0.3% sits above ~75th percentile of upward moves
+# - SL at 0.2% sits tigth for bailing us out of bad trades
+TP = 0.002        # 0.3% upward move → BUY signal
+SL = 0.0015        # 0.2% downward move → SELL signal (reversal)
+MAX_HORIZON = 10   # minutes to detect threshold hit
 DOWNTREND_THRESHOLD = 0.70  # fraction of horizon bars that must be below entry for sustained downtrend sell
 
 # ================================
