@@ -2,7 +2,7 @@
 Feature Engineering for Bitcoin Trend Detection
 
 Purpose:
-    Engineer 35+ technical indicators and price action features from raw OHLCV data.
+    Engineer 41+ technical indicators and price action features from raw OHLCV data.
     Features are designed to capture momentum, volatility, and trend dynamics at
     the 1-minute timeframe.
 
@@ -14,7 +14,7 @@ Feature Categories (35 total):
     5. Volume Metrics: Track participation/confirmation
 
 Output:
-    features.csv with all 35 features + original OHLCV + labels
+    features.csv with all 41 features + original OHLCV + labels
     Ready for model training and backtesting
 """
 
@@ -99,6 +99,14 @@ features = {
     # Volume momentum
     'volume_sma': np.full(n, np.nan),
     'volume_ratio': np.full(n, np.nan),        # current vol / avg vol
+
+    # Volume delta features
+    'volume_delta': np.full(n, np.nan),         # raw change in volume bar-to-bar
+    'volume_delta_pct': np.full(n, np.nan),     # % change in volume bar-to-bar
+    'volume_delta_sma_5': np.full(n, np.nan),   # 5-period SMA of volume delta
+    'volume_delta_sma_10': np.full(n, np.nan),  # 10-period SMA of volume delta
+    'volume_delta_std_5': np.full(n, np.nan),   # 5-period std of volume delta (delta volatility)
+    'volume_delta_signal': np.full(n, np.nan),  # volume delta × price direction (signed confirmation)
     
     # HSL (High-Low) smoothed range
     'hsl_5': np.full(n, np.nan),               # rolling max of hl_range
@@ -185,7 +193,21 @@ for i in tqdm(range(n)):
         features['volume_sma'][i] = np.mean(vol_window)
         if features['volume_sma'][i] > 0:
             features['volume_ratio'][i] = volume[i] / features['volume_sma'][i]
+
+        # Volume delta features
+        vol_delta_window = np.diff(volume[i-SHORT_WINDOW:i+1])  # 5 deltas
+        features['volume_delta_sma_5'][i] = np.mean(vol_delta_window)
+        features['volume_delta_std_5'][i] = np.std(vol_delta_window)
     
+    # Volume delta (requires only 1 previous bar)
+    if i >= 1:
+        features['volume_delta'][i] = volume[i] - volume[i-1]
+        if volume[i-1] > 0:
+            features['volume_delta_pct'][i] = (volume[i] - volume[i-1]) / volume[i-1]
+        # Signed confirmation: positive when volume rises on up bar, negative otherwise
+        price_dir = 1 if close_prices[i] >= close_prices[i-1] else -1
+        features['volume_delta_signal'][i] = features['volume_delta_pct'][i] * price_dir if volume[i-1] > 0 else 0.0
+
     # Mid window (10 periods)
     if i >= MID_WINDOW - 1:
         window_data = close_prices[i-MID_WINDOW+1:i+1]
@@ -199,6 +221,10 @@ for i in tqdm(range(n)):
         
         ret_10 = (close_prices[i-MID_WINDOW+1:i+1] - close_prices[i-MID_WINDOW:i]) / close_prices[i-MID_WINDOW:i]
         features['volatility_10'][i] = np.std(ret_10)
+
+        # 10-period volume delta SMA
+        vol_delta_window_10 = np.diff(volume[i-MID_WINDOW:i+1])  # 10 deltas
+        features['volume_delta_sma_10'][i] = np.mean(vol_delta_window_10)
     
     # Long window (20 periods)
     if i >= LONG_WINDOW - 1:
