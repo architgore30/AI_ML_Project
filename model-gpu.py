@@ -17,26 +17,26 @@ TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLIN
 
 # XGBoost hyperparameters
 # buy
-n_estimators1 = 355
-max_depth1 = 8
-learning_rate1 = 0.06926587979260976
-subsample1 = 0.5939151871276223
-min_child_weight1 = 17
-colsample_bytree1 = 0.6917716698497374
-gamma1 = 13.24122410316068
-reg_alpha1 = 2.43576716604145
-reg_lambda1 = 2.0176852791085285
+n_estimators1 = 498
+max_depth1 = 11
+learning_rate1 = 0.00847935099538873
+subsample1 = 0.9638101987534365
+min_child_weight1 = 18
+colsample_bytree1 = 0.6079078462179212
+gamma1 = 23.273068697607975
+reg_alpha1 = 0.6077083535786887
+reg_lambda1 = 0.18719226697223498
 
 # sell
-n_estimators2 = 310
+n_estimators2 = 378
 max_depth2 = 6
-learning_rate2 = 0.015475629670821401
-subsample2 = 0.7055049792631122
-min_child_weight2 = 22
-colsample_bytree2 = 0.618941570648027
-gamma2 = 3.5477315629091226
-reg_alpha2 = 4.433086457655295
-reg_lambda2 = 0.21791565696932425
+learning_rate2 = 0.015921860584612042
+subsample2 = 0.20044999645408015
+min_child_weight2 = 20
+colsample_bytree2 = 0.907598756755832
+gamma2 = 6.9014715346357365
+reg_alpha2 = 1.9127873552634118
+reg_lambda2 = 0.11065285990330309
 # ================================
 # HARDWARE DETECTION
 # ================================

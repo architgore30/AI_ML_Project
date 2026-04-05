@@ -852,3 +852,6 @@ recall has improved but precision is much lower, cit by 1/3rd in both models. go
 precision is still low. changed hyperparameter tuning to maximize f-beta score rathern than roc-auc sothat is prioritizes precion over recall. I don't need to aim correctly every time, I just need to aim correctly whenever I pull the trigger, even if I only pull the trigger rarely.
 
 improvement is marginal. changing scoring stratergy to pure precision while maintaining minimum recall or 0.5% (trying to find top few trades rather than letting the model cheat and only giving rare signals where uptrend was easy to catch ad showign good precision).
+
+Features might be the problem
+Added volume features to features.py

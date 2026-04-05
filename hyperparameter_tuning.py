@@ -69,7 +69,7 @@ except Exception as e:
 # CONFIGURATION
 # ================================
 
-DATA_PATH = "features.csv"
+DATA_PATH = "features_v2.csv"
 TRAIN_RATIO = 0.8
 SAMPLE_SIZE = 500_000
 PHASE_1_TRIALS = 60
@@ -164,14 +164,14 @@ def make_objective(label_idx, label_name, scale_pos_weight):
 
         params = {
             'n_estimators': trial.suggest_int('n_estimators', 50, 600),
-            'max_depth': trial.suggest_int('max_depth', 1, 15),
+            'max_depth': trial.suggest_int('max_depth', 1, 20),
             'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.1, log=True),
             'subsample': trial.suggest_float('subsample', 0.2, 1.0),
-            'min_child_weight': trial.suggest_int('min_child_weight', 1, 25),
+            'min_child_weight': trial.suggest_int('min_child_weight', 1, 35),
             'colsample_bytree': trial.suggest_float('colsample_bytree', 0.3, 1),
             'gamma': trial.suggest_float('gamma', 0, 25.0),
             'reg_alpha': trial.suggest_float('reg_alpha', 0, 5.0),
-            'reg_lambda': trial.suggest_float('reg_lambda', 0.1, 10.0, log=True)
+            'reg_lambda': trial.suggest_float('reg_lambda', 0.1, 15.0, log=True)
         }
 
         try:
