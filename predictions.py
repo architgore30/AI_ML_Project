@@ -18,12 +18,12 @@ import matplotlib.pyplot as plt
 # Specify which model folder to use (models, models-2, models-3, or models-4)
 MODELS_PATH = "models"  # Change this to models-2 or models-3 for other tiers
 
-DATA_PATH = "features.csv"
+DATA_PATH = "features_v2.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # Decision thresholds (0.5 = equal confidence in both signals to avoid trading)
-THRESHOLD_BUY =  0.5 #0.55
-THRESHOLD_SELL = 0.5 #0.475
+THRESHOLD_BUY =  0.6 #0.55
+THRESHOLD_SELL = 0.4 #0.475
 
 # ================================
 # LOAD DATA

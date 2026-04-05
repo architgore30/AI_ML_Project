@@ -855,3 +855,6 @@ improvement is marginal. changing scoring stratergy to pure precision while main
 
 Features might be the problem
 Added volume features to features.py
+
+problems identified. The hyperparameter tuning aims to increae precision over recall. This was doen in light fo the buy model but in reality the sell model is also usign the same metric while in the sell model recall matters mroe than precision.
+However, I will not fix this buy as we will have to remake the whole hyperparameter tuning stratergy anyways to adapt for the radically new labelling stratergy in "labelling_v2.py".

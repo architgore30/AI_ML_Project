@@ -38,7 +38,7 @@ from matplotlib.ticker import FuncFormatter
 # ================================
 MODEL_PATH = "models"
 PREDICTIONS_PATH = MODEL_PATH + "/predictions_test.csv"
-FEATURES_PATH = "features.csv"
+FEATURES_PATH = "features_v2.csv"
 
 # Trading parameters
 ENTRY_TIMEOUT = 30  # minutes to hold trade if signal doesn't reverse

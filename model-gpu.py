@@ -12,31 +12,31 @@ from tqdm import tqdm
 # CONFIGURATION
 # ================================
 
-DATA_PATH = "features.csv"
+DATA_PATH = "features_v2.csv"
 TRAIN_RATIO = 0.8  # First 80% = train, last 20% = test (TIME-BASED, NO SHUFFLING)
 
 # XGBoost hyperparameters
 # buy
-n_estimators1 = 498
-max_depth1 = 11
-learning_rate1 = 0.00847935099538873
-subsample1 = 0.9638101987534365
-min_child_weight1 = 18
-colsample_bytree1 = 0.6079078462179212
-gamma1 = 23.273068697607975
-reg_alpha1 = 0.6077083535786887
-reg_lambda1 = 0.18719226697223498
+n_estimators1 = 540
+max_depth1 = 7
+learning_rate1 = 0.04650970352314497
+subsample1 = 0.8575609837570844
+min_child_weight1 = 35
+colsample_bytree1 = 0.8356579182380578
+gamma1 = 7.327528493832833
+reg_alpha1 = 1.2901820760277325
+reg_lambda1 = 0.46747426871661363
 
 # sell
-n_estimators2 = 378
+n_estimators2 = 227
 max_depth2 = 6
-learning_rate2 = 0.015921860584612042
-subsample2 = 0.20044999645408015
-min_child_weight2 = 20
-colsample_bytree2 = 0.907598756755832
-gamma2 = 6.9014715346357365
-reg_alpha2 = 1.9127873552634118
-reg_lambda2 = 0.11065285990330309
+learning_rate2 = 0.0124482494618802
+subsample2 = 0.37548861760027585
+min_child_weight2 = 35
+colsample_bytree2 = 0.6167939014653676
+gamma2 = 15.22060767615693
+reg_alpha2 = 0.6602222359255239
+reg_lambda2 = 0.3853129815911319
 # ================================
 # HARDWARE DETECTION
 # ================================
@@ -66,7 +66,13 @@ except Exception:
 # LOAD DATA
 # ================================
 
-df = pd.read_csv(DATA_PATH)
+# df = pd.read_csv(DATA_PATH)
+# Enable Copy-on-Write for memory efficiency
+pd.options.mode.copy_on_write = True
+preview = pd.read_csv(DATA_PATH, nrows=1)
+float_cols = preview.select_dtypes(include=['float']).columns
+dtype_dict = {col: 'float32' for col in float_cols}
+df = pd.read_csv(DATA_PATH, dtype=dtype_dict, engine='c', low_memory=True)
 
 print(f"Loaded {len(df)} samples")
 

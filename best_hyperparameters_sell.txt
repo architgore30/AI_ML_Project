@@ -1,12 +1,12 @@
 Best Hyperparameters (SELL Model - Bayesian Optimization)
 ==========================================
-n_estimators2 = 378
+n_estimators2 = 227
 max_depth2 = 6
-learning_rate2 = 0.015921860584612042
-subsample2 = 0.20044999645408015
-min_child_weight2 = 20
-colsample_bytree2 = 0.907598756755832
-gamma2 = 6.9014715346357365
-reg_alpha2 = 1.9127873552634118
-reg_lambda2 = 0.11065285990330309
-Score: 0.6425
+learning_rate2 = 0.0124482494618802
+subsample2 = 0.37548861760027585
+min_child_weight2 = 35
+colsample_bytree2 = 0.6167939014653676
+gamma2 = 15.22060767615693
+reg_alpha2 = 0.6602222359255239
+reg_lambda2 = 0.3853129815911319
+Score: 0.6683

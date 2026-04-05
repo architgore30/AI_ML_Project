@@ -33,10 +33,10 @@ is_weak_hardware = cpu_count is not None and cpu_count <= 4
 print(f"Detected {cpu_count} physical CPU cores")
 if is_weak_hardware:
     print("✓ Weak hardware detected (<=4 cores) - using Bayesian optimization")
-    N_JOBS = 3
+    N_JOBS = 9
 else:
     print("✓ Standard/strong hardware - using full optimization")
-    N_JOBS = 3
+    N_JOBS = 9
 
 print(f"Will use {N_JOBS} parallel workers for trials")
 
