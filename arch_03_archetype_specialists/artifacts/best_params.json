@@ -1,0 +1,82 @@
+{
+  "no_trade_guard": {
+    "params": {
+      "max_depth": 8,
+      "learning_rate": 0.08237205819186104,
+      "subsample": 0.7928343979146176,
+      "min_child_weight": 24,
+      "colsample_bytree": 0.9899650080200384,
+      "gamma": 3.4058916016163585,
+      "reg_alpha": 0.02510046423103618,
+      "reg_lambda": 0.10216922658505247,
+      "n_estimators": 392,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 22,
+    "score": 0.8524384787472036,
+    "task": "binary",
+    "best_iteration": 21,
+    "best_score": 0.5474665254507638,
+    "eval_metric": "aucpr"
+  },
+  "archetype_router": {
+    "params": {
+      "max_depth": 6,
+      "learning_rate": 0.08294917577159225,
+      "subsample": 0.5366640780547371,
+      "min_child_weight": 9,
+      "colsample_bytree": 0.4149331751919423,
+      "gamma": 2.9355176462711756,
+      "reg_alpha": 0.17709741137466,
+      "reg_lambda": 0.4868409675427671,
+      "n_estimators": 357,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 214,
+    "score": 0.8070732983035209,
+    "task": "binary",
+    "best_iteration": 213,
+    "best_score": 0.8070732983035209,
+    "eval_metric": "auc"
+  },
+  "trend_direction": {
+    "params": {
+      "max_depth": 4,
+      "learning_rate": 0.09437725831337024,
+      "subsample": 0.8235524046811854,
+      "min_child_weight": 8,
+      "colsample_bytree": 0.9982032659875426,
+      "gamma": 6.350637972768464,
+      "reg_alpha": 3.6841281737343516,
+      "reg_lambda": 9.284999973264837,
+      "n_estimators": 162,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 150,
+    "score": 0.8436495261014272,
+    "task": "binary",
+    "best_iteration": 149,
+    "best_score": 0.8436495261014273,
+    "eval_metric": "auc"
+  },
+  "reversal_direction": {
+    "params": {
+      "max_depth": 9,
+      "learning_rate": 0.03012321646150677,
+      "subsample": 0.5910562181196881,
+      "min_child_weight": 16,
+      "colsample_bytree": 0.9369046799708612,
+      "gamma": 0.8317786639102596,
+      "reg_alpha": 1.9130650214079228,
+      "reg_lambda": 3.041728453803592,
+      "n_estimators": 260,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 3,
+    "score": 1.0,
+    "task": "binary",
+    "best_iteration": 2,
+    "best_score": 1.0,
+    "eval_metric": "auc"
+  }
+}

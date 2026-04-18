@@ -1,0 +1,13 @@
+{
+  "no_trade_threshold": 0.5,
+  "entry_threshold": 0.25,
+  "exit_threshold": 0.28,
+  "no_trade_guard_threshold": 0.55,
+  "long_entry_threshold": 0.2,
+  "buy_trend_threshold": 0.2,
+  "buy_reversal_threshold": 0.2,
+  "downside_exit_threshold": 0.28,
+  "exit_trend_threshold": 0.23000000000000004,
+  "exit_reversal_threshold": 0.23000000000000004,
+  "downside_block_threshold": 0.28
+}

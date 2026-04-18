@@ -1,0 +1,5 @@
+{
+  "no_trade_threshold": 0.6,
+  "entry_threshold": 0.18,
+  "exit_threshold": 0.22
+}

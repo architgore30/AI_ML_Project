@@ -1,0 +1,146 @@
+{
+  "architecture": "decision_specialists",
+  "models": {
+    "no_trade_guard": {
+      "validation_metrics": {
+        "roc_auc": 0.5163283257968685,
+        "logloss": 0.6914250884677412,
+        "precision_at_0_5": 0.5415024222218129,
+        "recall_at_0_5": 0.7977023502236935,
+        "fbeta_at_0_5": 0.7287444751004584
+      },
+      "selection_training": {
+        "best_iteration": 8,
+        "used_rounds": 9,
+        "best_score": 0.6914250885916536,
+        "eval_metric": "aucpr",
+        "train_rows": 2202187,
+        "validation_rows": 550546
+      },
+      "final_training": {
+        "used_rounds": 9,
+        "requested_rounds": 9,
+        "eval_metric": "aucpr",
+        "train_rows": 2752733
+      }
+    },
+    "long_entry": {
+      "validation_metrics": {
+        "roc_auc": 0.5367740991136964,
+        "logloss": 0.6835200089944249,
+        "precision_at_0_5": 0.25622343131590974,
+        "recall_at_0_5": 0.45955057917446374,
+        "fbeta_at_0_5": 0.2810976382690099
+      },
+      "selection_training": {
+        "best_iteration": 21,
+        "used_rounds": 22,
+        "best_score": 0.6835200089445559,
+        "eval_metric": "aucpr",
+        "train_rows": 2202187,
+        "validation_rows": 550546
+      },
+      "final_training": {
+        "used_rounds": 22,
+        "requested_rounds": 22,
+        "eval_metric": "aucpr",
+        "train_rows": 2752733
+      }
+    },
+    "downside_exit": {
+      "validation_metrics": {
+        "roc_auc": 0.5390933883451234,
+        "logloss": 0.6891245259738277,
+        "precision_at_0_5": 0.25066369479989653,
+        "recall_at_0_5": 0.4982397291160671,
+        "fbeta_at_0_5": 0.41605392885502923
+      },
+      "selection_training": {
+        "best_iteration": 11,
+        "used_rounds": 12,
+        "best_score": 0.68912452611079,
+        "eval_metric": "aucpr",
+        "train_rows": 2202187,
+        "validation_rows": 550546
+      },
+      "final_training": {
+        "used_rounds": 12,
+        "requested_rounds": 12,
+        "eval_metric": "aucpr",
+        "train_rows": 2752733
+      }
+    },
+    "long_archetype": {
+      "validation_metrics": {
+        "roc_auc": 0.9999656236867558,
+        "logloss": 0.08890710161811877,
+        "precision_at_0_5": 0.9920630414788405,
+        "recall_at_0_5": 0.9987539866710867,
+        "fbeta_at_0_5": 0.9953972702622644
+      },
+      "selection_training": {
+        "best_iteration": 34,
+        "used_rounds": 35,
+        "best_score": 0.088907104669698,
+        "eval_metric": "auc",
+        "train_rows": 508113,
+        "validation_rows": 129322
+      },
+      "final_training": {
+        "used_rounds": 35,
+        "requested_rounds": 35,
+        "eval_metric": "auc",
+        "train_rows": 637435
+      }
+    },
+    "downside_archetype": {
+      "validation_metrics": {
+        "roc_auc": 0.9999919097373677,
+        "logloss": 0.128820403527204,
+        "precision_at_0_5": 0.999784691570675,
+        "recall_at_0_5": 0.9996053386911596,
+        "fbeta_at_0_5": 0.9996950070866001
+      },
+      "selection_training": {
+        "best_iteration": 33,
+        "used_rounds": 34,
+        "best_score": 0.12882040214414225,
+        "eval_metric": "auc",
+        "train_rows": 506291,
+        "validation_rows": 126401
+      },
+      "final_training": {
+        "used_rounds": 34,
+        "requested_rounds": 34,
+        "eval_metric": "auc",
+        "train_rows": 632692
+      }
+    }
+  },
+  "threshold_search": {
+    "architecture": "decision_specialists",
+    "final_balance": 7.429701086000222e-20,
+    "total_return_pct": -100.0,
+    "max_drawdown_pct": -100.0,
+    "trade_count": 92647,
+    "win_rate": 0.18587757833497037,
+    "profit_factor": 0.15946224978117224
+  },
+  "calibration_truth_rates": {
+    "p_no_trade": 0.5350801430941801,
+    "p_buy": 0.23377861815486975,
+    "p_exit": 0.2311412387509502
+  },
+  "calibration_score_summary": {
+    "raw_means": {
+      "p_no_trade_mean": 0.5059313774108887,
+      "p_buy_mean": 0.4537722170352936,
+      "p_exit_mean": 0.4415760338306427
+    },
+    "calibrated_means": {
+      "p_no_trade_mean": 0.5351099024012425,
+      "p_buy_mean": 0.23343904481026317,
+      "p_exit_mean": 0.23083703742848669
+    }
+  }
+}

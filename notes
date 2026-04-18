@@ -858,3 +858,13 @@ Added volume features to features.py
 
 problems identified. The hyperparameter tuning aims to increae precision over recall. This was doen in light fo the buy model but in reality the sell model is also usign the same metric while in the sell model recall matters mroe than precision.
 However, I will not fix this buy as we will have to remake the whole hyperparameter tuning stratergy anyways to adapt for the radically new labelling stratergy in "labelling_v2.py".
+
+===== MULTI-ARCHITECTURE SPECIALIST EXPERIMENTS =====
+
+Following the new labelling_v2 / features_v3 pipeline, the next multi-week sprint is dedicated to three self-contained architecture blueprints. Each folder carries its own copy of the pipeline code and artifacts, so we can compare apples to apples without cross contamination.
+
+- `arch_01_multiclass_baseline`: Keeps the simplest path—one softmax-based XGBoost model training on the 5-class `state_class`. The decision logic is derived from the calibrated probabilities (`p_buy`, `p_exit`, `p_no_trade`) with the standard BUY/EXIT/HOLD actions. Runs give us the benchmark of how a single model handles the new labels.
+- `arch_02_decision_specialists`: A layered specialist stack. Recall-heavy `no_trade_guard` filters, precision-focused `long_entry`, recall-focused `downside_exit`, plus the long/downside archetype refinements. Outputs are aggregated into buy/exit scores before the HOLD/BUY/EXIT decision logic fires. This is the structure we expect to deploy if the modular routers hold.
+- `arch_03_archetype_specialists`: More explicit router decomposition. `no_trade_guard` plus an archetype router separates trend vs reversal, with dedicated direction models for each. The routing scores combine into buy/exit action candidates, so we can see whether specialization by skillset beats the previous structure.
+
+Only once all three architectures finish their smoke tuning / calibration / backtests do we compare return profiles. The shared artifacts (best params, thresholds, decisions, backtest log) let us pivot quickly between structures and keep the experimental narrative clear.

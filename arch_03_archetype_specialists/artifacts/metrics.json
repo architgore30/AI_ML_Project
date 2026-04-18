@@ -1,0 +1,123 @@
+{
+  "architecture": "archetype_specialists",
+  "models": {
+    "no_trade_guard": {
+      "validation_metrics": {
+        "roc_auc": 0.5170573260149373,
+        "logloss": 0.6911717600929406,
+        "precision_at_0_5": 0.5415741935483871,
+        "recall_at_0_5": 0.7829986127269583,
+        "fbeta_at_0_5": 0.718903647491003
+      },
+      "selection_training": {
+        "best_iteration": 21,
+        "used_rounds": 22,
+        "best_score": 0.6911717601073133,
+        "eval_metric": "aucpr",
+        "train_rows": 2202187,
+        "validation_rows": 550546
+      },
+      "final_training": {
+        "used_rounds": 22,
+        "requested_rounds": 22,
+        "eval_metric": "aucpr",
+        "train_rows": 2752733
+      }
+    },
+    "archetype_router": {
+      "validation_metrics": {
+        "roc_auc": 0.8074513719418659,
+        "logloss": 0.4613427812882245,
+        "precision_at_0_5": 0.9770385154196012,
+        "recall_at_0_5": 0.5951372044770449,
+        "fbeta_at_0_5": 0.7397035374283089
+      },
+      "selection_training": {
+        "best_iteration": 212,
+        "used_rounds": 213,
+        "best_score": 0.46134278129258705,
+        "eval_metric": "auc",
+        "train_rows": 1014404,
+        "validation_rows": 255723
+      },
+      "final_training": {
+        "used_rounds": 213,
+        "requested_rounds": 213,
+        "eval_metric": "auc",
+        "train_rows": 1270127
+      }
+    },
+    "trend_direction": {
+      "validation_metrics": {
+        "roc_auc": 0.8445395933075439,
+        "logloss": 0.4064477459117846,
+        "precision_at_0_5": 0.7448461667989704,
+        "recall_at_0_5": 0.7079184718618182,
+        "fbeta_at_0_5": 0.725912988436359
+      },
+      "selection_training": {
+        "best_iteration": 130,
+        "used_rounds": 131,
+        "best_score": 0.40644774581409854,
+        "eval_metric": "auc",
+        "train_rows": 674797,
+        "validation_rows": 171095
+      },
+      "final_training": {
+        "used_rounds": 131,
+        "requested_rounds": 131,
+        "eval_metric": "auc",
+        "train_rows": 845892
+      }
+    },
+    "reversal_direction": {
+      "validation_metrics": {
+        "roc_auc": 1.0,
+        "logloss": 0.6092292507751285,
+        "precision_at_0_5": 1.0,
+        "recall_at_0_5": 1.0,
+        "fbeta_at_0_5": 1.0
+      },
+      "selection_training": {
+        "best_iteration": 2,
+        "used_rounds": 3,
+        "best_score": 0.60922921237335,
+        "eval_metric": "auc",
+        "train_rows": 339607,
+        "validation_rows": 84628
+      },
+      "final_training": {
+        "used_rounds": 3,
+        "requested_rounds": 3,
+        "eval_metric": "auc",
+        "train_rows": 424235
+      }
+    }
+  },
+  "threshold_search": {
+    "architecture": "archetype_specialists",
+    "final_balance": 4.956069313750235e-34,
+    "total_return_pct": -100.0,
+    "max_drawdown_pct": -100.0,
+    "trade_count": 147178,
+    "win_rate": 0.14646890160214163,
+    "profit_factor": 0.10252063702744006
+  },
+  "calibration_truth_rates": {
+    "p_no_trade": 0.5350801430941801,
+    "p_buy": 0.23377861815486975,
+    "p_exit": 0.2311412387509502
+  },
+  "calibration_score_summary": {
+    "raw_means": {
+      "p_no_trade_mean": 0.5061885714530945,
+      "p_buy_mean": 0.39966416358947754,
+      "p_exit_mean": 0.42217695713043213
+    },
+    "calibrated_means": {
+      "p_no_trade_mean": 0.5350696089393193,
+      "p_buy_mean": 0.481794989021491,
+      "p_exit_mean": 0.4999124677824108
+    }
+  }
+}

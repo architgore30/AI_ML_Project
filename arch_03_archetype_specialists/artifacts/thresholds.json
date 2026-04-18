@@ -1,0 +1,12 @@
+{
+  "no_trade_threshold": 0.65,
+  "entry_threshold": 0.18,
+  "exit_threshold": 0.18,
+  "no_trade_guard_threshold": 0.65,
+  "trend_router_threshold": 0.45,
+  "reversal_router_threshold": 0.45,
+  "trend_up_threshold": 0.13,
+  "reversal_up_threshold": 0.13,
+  "trend_down_threshold": 0.13,
+  "reversal_down_threshold": 0.13
+}

@@ -1,0 +1,182 @@
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).resolve().parent
+ARTIFACTS_DIR = BASE_DIR / "artifacts"
+OUTPUTS_DIR = BASE_DIR / "outputs"
+
+DATASET_PATH = BASE_DIR / "dataset.csv"
+LABELED_PATH = BASE_DIR / "labeled_data_v2.csv"
+FEATURES_PATH = BASE_DIR / "features_v3.csv"
+
+RUN_PROFILE = "full"  # "smoke" or "full"
+ARCHITECTURE_NAME = "archetype_specialists"
+
+MAX_HORIZON_BARS = 30
+PURGE_GAP_BARS = MAX_HORIZON_BARS
+
+TRAIN_RATIO = 0.60
+VALIDATION_RATIO = 0.15
+CALIBRATION_RATIO = 0.10
+TEST_RATIO = 0.15
+
+SMOKE_ROW_LIMIT = 120_000
+TUNING_ROW_LIMIT_SMOKE = SMOKE_ROW_LIMIT
+TUNING_ROW_LIMIT_FULL = 500_000
+CSV_CHUNK_SIZE = 100_000
+TRAIN_ON_TRAIN_PLUS_VALIDATION = True
+RESERVED_CPU_CORES = 2
+TARGET_PARALLEL_JOBS = 8
+THREADS_PER_JOB = 1
+
+CALIBRATION_METHOD = "sigmoid"
+EARLY_STOPPING_ROUNDS_TUNING = 60
+EARLY_STOPPING_ROUNDS_TRAINING = 150
+
+ENTRY_TIMEOUT_BARS = MAX_HORIZON_BARS
+INITIAL_BALANCE = 100_000.0
+SLIPPAGE = 0.0001
+COMMISSION = 0.0002
+
+THRESHOLD_OBJECTIVE_DRAWDOWN_WEIGHT = 0.5
+ENTRY_THRESHOLD_GRID = [0.18, 0.20, 0.22, 0.25, 0.28, 0.30]
+EXIT_THRESHOLD_GRID = [0.18, 0.20, 0.22, 0.25, 0.28, 0.30]
+NO_TRADE_THRESHOLD_GRID = [0.45, 0.50, 0.55, 0.60, 0.65]
+THRESHOLD_MIN = 0.05
+THRESHOLD_MAX = 0.95
+SPECIALIST_THRESHOLD_OFFSETS = [-0.05, 0.0, 0.05]
+
+PHASE_1_TRIALS_SMOKE = 4
+PHASE_2_TRIALS_SMOKE = 2
+PHASE_1_TRIALS_FULL = 60
+PHASE_2_TRIALS_FULL = 25
+
+DEFAULT_MAX_DEPTH = 6
+DEFAULT_LEARNING_RATE = 0.05
+DEFAULT_SUBSAMPLE = 0.8
+DEFAULT_MIN_CHILD_WEIGHT = 8
+DEFAULT_COLSAMPLE_BYTREE = 0.8
+DEFAULT_GAMMA = 1.0
+DEFAULT_REG_ALPHA = 0.0
+DEFAULT_REG_LAMBDA = 1.0
+DEFAULT_BOOST_ROUNDS = 220
+
+# Class weighting (applies during both tuning and training).
+USE_CLASS_WEIGHTS = True
+
+# Binary: scale_pos_weight = (neg/pos) ** BINARY_SCALE_POS_WEIGHT_POWER
+BINARY_SCALE_POS_WEIGHT_POWER = 1.0
+
+# Multiclass: class_weight[c] = (total / (K * count[c])) ** MULTICLASS_CLASS_WEIGHT_POWER
+MULTICLASS_CLASS_WEIGHT_POWER = 1.0
+
+PHASE_1_N_ESTIMATORS_LOW_SMOKE = 50
+PHASE_1_N_ESTIMATORS_HIGH_SMOKE = 160
+PHASE_1_N_ESTIMATORS_LOW_FULL = 100
+PHASE_1_N_ESTIMATORS_HIGH_FULL = 400
+PHASE_1_MAX_DEPTH_LOW = 3
+PHASE_1_MAX_DEPTH_HIGH = 10
+PHASE_1_LEARNING_RATE_LOW = 0.01
+PHASE_1_LEARNING_RATE_HIGH = 0.15
+PHASE_1_SUBSAMPLE_LOW = 0.4
+PHASE_1_SUBSAMPLE_HIGH = 1.0
+PHASE_1_MIN_CHILD_WEIGHT_LOW = 1
+PHASE_1_MIN_CHILD_WEIGHT_HIGH = 30
+PHASE_1_COLSAMPLE_BYTREE_LOW = 0.4
+PHASE_1_COLSAMPLE_BYTREE_HIGH = 1.0
+PHASE_1_GAMMA_LOW = 0.0
+PHASE_1_GAMMA_HIGH = 10.0
+PHASE_1_REG_ALPHA_LOW = 0.0
+PHASE_1_REG_ALPHA_HIGH = 4.0
+PHASE_1_REG_LAMBDA_LOW = 0.1
+PHASE_1_REG_LAMBDA_HIGH = 10.0
+
+PHASE_2_N_ESTIMATORS_HARD_LOW = 40
+PHASE_2_N_ESTIMATORS_HARD_HIGH = 600
+PHASE_2_N_ESTIMATORS_WINDOW_RATIO = 0.25
+PHASE_2_N_ESTIMATORS_WINDOW_MIN = 10
+PHASE_2_MAX_DEPTH_HARD_LOW = 1
+PHASE_2_MAX_DEPTH_HARD_HIGH = 20
+PHASE_2_MAX_DEPTH_WINDOW = 2
+PHASE_2_LEARNING_RATE_HARD_LOW = 0.001
+PHASE_2_LEARNING_RATE_HARD_HIGH = 0.1
+PHASE_2_LEARNING_RATE_WINDOW_RATIO = 0.5
+PHASE_2_SUBSAMPLE_HARD_LOW = 0.2
+PHASE_2_SUBSAMPLE_HARD_HIGH = 1.0
+PHASE_2_SUBSAMPLE_WINDOW = 0.15
+PHASE_2_MIN_CHILD_WEIGHT_HARD_LOW = 1
+PHASE_2_MIN_CHILD_WEIGHT_HARD_HIGH = 35
+PHASE_2_MIN_CHILD_WEIGHT_WINDOW = 5
+PHASE_2_COLSAMPLE_BYTREE_HARD_LOW = 0.3
+PHASE_2_COLSAMPLE_BYTREE_HARD_HIGH = 1.0
+PHASE_2_COLSAMPLE_BYTREE_WINDOW = 0.15
+PHASE_2_GAMMA_HARD_LOW = 0.0
+PHASE_2_GAMMA_HARD_HIGH = 25.0
+PHASE_2_GAMMA_WINDOW = 2.0
+PHASE_2_REG_ALPHA_HARD_LOW = 0.0
+PHASE_2_REG_ALPHA_HARD_HIGH = 5.0
+PHASE_2_REG_ALPHA_WINDOW = 0.75
+PHASE_2_REG_LAMBDA_HARD_LOW = 0.1
+PHASE_2_REG_LAMBDA_HARD_HIGH = 15.0
+PHASE_2_REG_LAMBDA_WINDOW_RATIO = 0.5
+
+MODEL_SPECS = [
+    {
+        "name": "no_trade_guard",
+        "task": "binary",
+        "eligible_classes": [0, 1, 2, 3, 4],
+        "positive_classes": [0],
+        "objective": "binary:logistic",
+        "tuning_metric": "fbeta",
+        "beta": 2.0,
+        "eval_metric": "aucpr",
+    },
+    {
+        "name": "archetype_router",
+        "task": "binary",
+        "eligible_classes": [1, 2, 3, 4],
+        "positive_classes": [1, 2],
+        "objective": "binary:logistic",
+        "tuning_metric": "roc_auc",
+        "eval_metric": "auc",
+    },
+    {
+        "name": "trend_direction",
+        "task": "binary",
+        "eligible_classes": [1, 2],
+        "positive_classes": [1],
+        "objective": "binary:logistic",
+        "tuning_metric": "roc_auc",
+        "eval_metric": "auc",
+    },
+    {
+        "name": "reversal_direction",
+        "task": "binary",
+        "eligible_classes": [3, 4],
+        "positive_classes": [3],
+        "objective": "binary:logistic",
+        "tuning_metric": "roc_auc",
+        "eval_metric": "auc",
+    },
+]
+
+RAW_MARKET_COLUMNS = ["Timestamp", "DateTime", "Open", "High", "Low", "Close", "Volume"]
+LABEL_COLUMNS = [
+    "label_available",
+    "state_class",
+    "state_label",
+    "no_trade_label",
+    "trend_up_label",
+    "trend_down_label",
+    "reversal_up_label",
+    "reversal_down_label",
+]
+
+NORMALIZED_FEATURE_COLUMNS = [
+    "macd_line_pct_close",
+    "macd_signal_pct_close",
+    "macd_hist_pct_close",
+    "macd_hist_atr",
+    "log_close",
+    "log_volume",
+]

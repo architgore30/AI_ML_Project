@@ -1,0 +1,51 @@
+{
+  "architecture": "multiclass_baseline",
+  "models": {
+    "multiclass_state": {
+      "validation_metrics": {
+        "logloss": 1.2576655262575431,
+        "accuracy": 0.2532467768360864
+      },
+      "selection_training": {
+        "best_iteration": 174,
+        "used_rounds": 175,
+        "best_score": 1.0282966921986625,
+        "eval_metric": "mlogloss",
+        "train_rows": 2202187,
+        "validation_rows": 550546
+      },
+      "final_training": {
+        "used_rounds": 175,
+        "requested_rounds": 175,
+        "eval_metric": "mlogloss",
+        "train_rows": 2752733
+      }
+    }
+  },
+  "threshold_search": {
+    "architecture": "multiclass_baseline",
+    "final_balance": 0.011558061922324725,
+    "total_return_pct": -99.99998844193809,
+    "max_drawdown_pct": -99.99998845334336,
+    "trade_count": 27144,
+    "win_rate": 0.28039345711759506,
+    "profit_factor": 0.24174452272323893
+  },
+  "calibration_truth_rates": {
+    "p_no_trade": 0.5350801430941801,
+    "p_buy": 0.23377861815486975,
+    "p_exit": 0.2311412387509502
+  },
+  "calibration_score_summary": {
+    "raw_means": {
+      "p_no_trade_mean": 0.22900760173797607,
+      "p_buy_mean": 0.3699517250061035,
+      "p_exit_mean": 0.4010406732559204
+    },
+    "calibrated_means": {
+      "p_no_trade_mean": 0.5350980780457846,
+      "p_buy_mean": 0.23378255555045824,
+      "p_exit_mean": 0.2311485179278742
+    }
+  }
+}

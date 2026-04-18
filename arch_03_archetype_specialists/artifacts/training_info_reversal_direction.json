@@ -1,0 +1,28 @@
+{
+  "spec_name": "reversal_direction",
+  "task": "binary",
+  "eval_metric": "auc",
+  "requested_rounds": 3,
+  "best_iteration": 2,
+  "used_rounds": 3,
+  "best_score": 0.60922921237335,
+  "early_stopping_rounds": 150,
+  "train_rows": 339607,
+  "validation_rows": 84628,
+  "evals_result": {
+    "train": {
+      "logloss": [
+        0.6634854712063554,
+        0.6355572079271422,
+        0.6092154877841185
+      ]
+    },
+    "validation": {
+      "logloss": [
+        0.6634906785841806,
+        0.6355643060915681,
+        0.60922921237335
+      ]
+    }
+  }
+}

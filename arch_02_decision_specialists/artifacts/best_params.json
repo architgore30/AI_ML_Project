@@ -1,0 +1,102 @@
+{
+  "no_trade_guard": {
+    "params": {
+      "max_depth": 6,
+      "learning_rate": 0.14194816076985073,
+      "subsample": 0.6054808620888272,
+      "min_child_weight": 3,
+      "colsample_bytree": 0.7316315797289363,
+      "gamma": 5.080158147301401,
+      "reg_alpha": 3.8906924218718277,
+      "reg_lambda": 3.380687150989132,
+      "n_estimators": 321,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 9,
+    "score": 0.8524308507306423,
+    "task": "binary",
+    "best_iteration": 8,
+    "best_score": 0.5485816778295696,
+    "eval_metric": "aucpr"
+  },
+  "long_entry": {
+    "params": {
+      "max_depth": 5,
+      "learning_rate": 0.04589380604975063,
+      "subsample": 0.6705197294586358,
+      "min_child_weight": 8,
+      "colsample_bytree": 0.42089490169341337,
+      "gamma": 4.512700492189736,
+      "reg_alpha": 1.7346984593375319,
+      "reg_lambda": 1.433702135098215,
+      "n_estimators": 80,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 22,
+    "score": 0.28927777139694905,
+    "task": "binary",
+    "best_iteration": 21,
+    "best_score": 0.25561208972376653,
+    "eval_metric": "aucpr"
+  },
+  "downside_exit": {
+    "params": {
+      "max_depth": 4,
+      "learning_rate": 0.04306930622605025,
+      "subsample": 0.7059602933445734,
+      "min_child_weight": 11,
+      "colsample_bytree": 0.7540129492685873,
+      "gamma": 5.385483031000224,
+      "reg_alpha": 1.827067328885186,
+      "reg_lambda": 0.11244604490723709,
+      "n_estimators": 222,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 12,
+    "score": 0.596843034807565,
+    "task": "binary",
+    "best_iteration": 11,
+    "best_score": 0.24842752378632957,
+    "eval_metric": "aucpr"
+  },
+  "long_archetype": {
+    "params": {
+      "max_depth": 9,
+      "learning_rate": 0.05262403663566551,
+      "subsample": 0.27054517975960013,
+      "min_child_weight": 18,
+      "colsample_bytree": 0.9348980655318574,
+      "gamma": 2.7706273092080873,
+      "reg_alpha": 0.15874124978687393,
+      "reg_lambda": 0.17228205071654382,
+      "n_estimators": 103,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 35,
+    "score": 0.9999992188146919,
+    "task": "binary",
+    "best_iteration": 34,
+    "best_score": 0.9999992188146919,
+    "eval_metric": "auc"
+  },
+  "downside_archetype": {
+    "params": {
+      "max_depth": 10,
+      "learning_rate": 0.05045136899549185,
+      "subsample": 0.5762845928749684,
+      "min_child_weight": 20,
+      "colsample_bytree": 0.5340098275668247,
+      "gamma": 6.508700747375878,
+      "reg_alpha": 3.369284424603305,
+      "reg_lambda": 8.64750132451837,
+      "n_estimators": 110,
+      "objective": "binary:logistic"
+    },
+    "num_boost_round": 34,
+    "score": 1.0000000000000002,
+    "task": "binary",
+    "best_iteration": 33,
+    "best_score": 1.0,
+    "eval_metric": "auc"
+  }
+}

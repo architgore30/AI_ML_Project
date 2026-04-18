@@ -1,0 +1,9 @@
+{
+  "architecture": "multiclass_baseline",
+  "final_balance": 4.528500207612567e-06,
+  "total_return_pct": -99.9999999954715,
+  "max_drawdown_pct": -99.99999999547195,
+  "trade_count": 40766,
+  "win_rate": 0.21831918755825933,
+  "profit_factor": 0.25235996710635555
+}

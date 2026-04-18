@@ -1,0 +1,23 @@
+{
+  "multiclass_state": {
+    "params": {
+      "max_depth": 12,
+      "learning_rate": 0.05778138988362551,
+      "subsample": 0.9806499779485254,
+      "min_child_weight": 3,
+      "colsample_bytree": 0.46453481685436065,
+      "gamma": 1.6403589165166177,
+      "reg_alpha": 1.3022852474438031,
+      "reg_lambda": 4.0500758845639995,
+      "n_estimators": 205,
+      "objective": "multi:softprob",
+      "num_class": 5
+    },
+    "num_boost_round": 175,
+    "score": -1.2339483811326273,
+    "task": "multiclass",
+    "best_iteration": 174,
+    "best_score": 1.0627414297725777,
+    "eval_metric": "mlogloss"
+  }
+}
